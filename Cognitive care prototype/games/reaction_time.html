@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teddy Reaction Challenge</title>
+  <script src="../JS/api.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 18px;
+      color: #1c2940;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #e6f2ff, #f8eaff);
+    }
+
+    .game {
+      width: min(100%, 700px);
+      padding: clamp(18px, 4vw, 32px);
+      border: 1px solid white;
+      border-radius: 24px;
+      background: #ffffffed;
+      box-shadow: 0 16px 45px #293d6820;
+      text-align: center;
+    }
+
+    h1 { margin: 0 0 8px; }
+    .subtitle { margin: 0; color: #65718a; line-height: 1.5; }
+    .hidden { display: none !important; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      margin: 20px 0;
+    }
+
+    .stat {
+      padding: 11px 6px;
+      border-radius: 12px;
+      background: #f1f4fb;
+      color: #647089;
+      font-size: 12px;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 5px;
+      color: #1c2940;
+      font-size: 20px;
+    }
+
+    .mode-levels { display: flex; justify-content: center; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .mode-levels span {
+      min-width: 24px; height: 24px; display: grid; place-items: center;
+      padding: 0 3px; border: 1px solid #d7deeb; border-radius: 6px;
+      background: #fff; color: #647089; font-size: 12px; font-weight: 700;
+    }
+
+    .modes, .actions {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    button { font: inherit; cursor: pointer; }
+
+    .mode, .action {
+      padding: 11px 16px;
+      border: 1px solid #d7deeb;
+      border-radius: 11px;
+      background: #f5f7fc;
+      color: #253451;
+      font-weight: bold;
+    }
+
+    .mode.selected {
+      border-color: #345fc4;
+      background: #eaf0ff;
+      color: #244ba8;
+    }
+
+    .action.primary {
+      border-color: #315bc2;
+      background: #315bc2;
+      color: white;
+    }
+
+    .action:disabled { opacity: .55; cursor: default; }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(100px, 180px));
+      justify-content: center;
+      gap: 14px;
+      margin: 20px auto;
+    }
+
+    .box {
+      aspect-ratio: 1;
+      border: 3px solid #d9e1f0;
+      border-radius: 20px;
+      background: #eef2f9;
+      font-size: clamp(42px, 10vw, 70px);
+      transition: transform .12s, background .12s;
+      touch-action: manipulation;
+    }
+
+    .box:active { transform: scale(.96); }
+    .box.teddy { border-color: #f0b83f; background: #fff3c8; }
+    .box:disabled { cursor: default; }
+
+    #message {
+      min-height: 28px;
+      margin: 12px 0 0;
+      font-weight: bold;
+    }
+
+    #saveStatus {
+      min-height: 22px;
+      color: #52617b;
+      font-size: 13px;
+    }
+
+    a { display: inline-block; margin-top: 14px; color: #315bc2; }
+  </style>
+</head>
+
+<body>
+  <main class="game">
+    <h1>🧸 Teddy Reaction Challenge</h1>
+    <p class="subtitle">Teddy ko dekhte hi us box par jaldi click karo!</p>
+
+    <div class="stats">
+      <div class="stat">MODE<strong id="modeStat">Easy</strong></div>
+      <div class="stat">LEVEL<strong id="levelStat">1 / 5</strong></div>
+      <div class="stat">SCORE<strong id="scoreStat">0 / 100</strong></div>
+    </div>
+
+    <section id="home">
+      <p>Difficulty chuno. Har mode mein 5 levels aur har level mein 3 rounds hain.</p>
+      <div class="modes">
+        <button class="mode selected" data-mode="easy" type="button">Easy<span class="mode-levels" aria-label="Easy mode levels 1 through 5"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></span></button>
+        <button class="mode" data-mode="medium" type="button">Medium<span class="mode-levels" aria-label="Medium mode levels 1 through 5"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></span></button>
+        <button class="mode" data-mode="hard" type="button">Hard<span class="mode-levels" aria-label="Hard mode levels 1 through 5"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></span></button>
+      </div>
+      <div class="actions">
+        <button class="action primary" id="startBtn" type="button">Start Game</button>
+        <button class="action" id="resumeBtn" type="button" hidden>Continue saved game</button>
+      </div>
+    </section>
+
+    <section id="play" class="hidden">
+      <p id="instruction">Teddy aane ka wait karo…</p>
+      <div class="board" id="board"></div>
+      <p id="message" aria-live="polite">Ready?</p>
+      <div class="actions">
+        <button class="action" id="nextBtn" type="button" disabled>Next Teddy…</button>
+      </div>
+    </section>
+
+    <section id="finished" class="hidden">
+      <h2 id="finishedTitle">Mode complete!</h2>
+      <p id="summary"></p>
+      <p id="saveStatus" aria-live="polite"></p>
+      <div class="actions">
+        <button class="action primary" id="againBtn" type="button">Play Again</button>
+        <button class="action" id="changeModeBtn" type="button">Change Mode</button>
+      </div>
+    </section>
+
+    <a href="../games.html">← Back to All Games</a>
+  </main>
+
+  <script>
+    "use strict";
+
+    const modes = {
+      easy: {
+        name: "Easy",
+        delays: [1300, 1150, 1000, 850, 700]
+      },
+      medium: {
+        name: "Medium",
+        delays: [1000, 850, 700, 550, 450]
+      },
+      hard: {
+        name: "Hard",
+        delays: [750, 600, 475, 375, 300]
+      }
+    };
+
+    const ROUNDS_PER_LEVEL = 3;
+    const LEVELS_PER_MODE = 5;
+    const RESUME_KEY = "neurocare_resume_reaction_time";
+    const TOTAL_ROUNDS = ROUNDS_PER_LEVEL * LEVELS_PER_MODE;
+    let roundsPerRun = TOTAL_ROUNDS;
+
+    const $ = id => document.getElementById(id);
+
+    let selectedMode = "easy";
+    let level = 1;
+    let score = 0;
+    let errors = 0;
+    let round = 0;
+    let roundStartedAt = 0;
+    let waitTimer = null;
+    let teddyTimer = null;
+    let continueTimer = null;
+    let state = "idle";
+    let roundTimes = [];
+    let levelSuccesses = 0;
+    let levelErrors = 0;
+    let levelReactionTimes = [];
+
+    const board = $("board");
+
+    for (let i = 0; i < 4; i++) {
+      const box = document.createElement("button");
+      box.className = "box";
+      box.type = "button";
+      box.setAttribute("aria-label", `Box ${i + 1}`);
+      box.addEventListener("click", () => clickBox(i));
+      board.appendChild(box);
+    }
+
+    const boxes = [...board.children];
+
+    function updateStats() {
+      $("modeStat").textContent = modes[selectedMode].name;
+      $("levelStat").textContent = `${level} / ${LEVELS_PER_MODE}`;
+      $("scoreStat").textContent = `${score} / 100`;
+    }
+
+    function clearTimers() {
+      clearTimeout(waitTimer);
+      clearTimeout(teddyTimer);
+      clearTimeout(continueTimer);
+      waitTimer = null;
+      teddyTimer = null;
+      continueTimer = null;
+    }
+
+    function saveResume() {
+      localStorage.setItem(RESUME_KEY, JSON.stringify({
+        mode: selectedMode, level, round, score, errors, roundTimes,
+        levelSuccesses, levelErrors, levelReactionTimes
+      }));
+    }
+
+    function chooseMode(mode) {
+      selectedMode = mode;
+
+      document.querySelectorAll(".mode").forEach(button => {
+        button.classList.toggle("selected", button.dataset.mode === mode);
+      });
+
+      updateStats();
+    }
+
+    async function startGame() {
+      clearTimers();
+      localStorage.removeItem(RESUME_KEY);
+
+      const recommendation = await getRecommendedGameLevel("reaction_time");
+      if (recommendation) {
+        chooseMode(recommendation.recommended_mode);
+        level = Math.min(recommendation.recommended_level, LEVELS_PER_MODE);
+      } else {
+        level = 1;
+      }
+      roundsPerRun = ROUNDS_PER_LEVEL * (LEVELS_PER_MODE - level + 1);
+      score = 0;
+      errors = 0;
+      round = 0;
+      roundTimes = [];
+      levelSuccesses = 0;
+      levelErrors = 0;
+      levelReactionTimes = [];
+      state = "idle";
+
+      $("home").classList.add("hidden");
+      $("finished").classList.add("hidden");
+      $("play").classList.remove("hidden");
+
+      updateStats();
+      startRound();
+    }
+
+    function resumeGame() {
+      let saved;
+      try { saved = JSON.parse(localStorage.getItem(RESUME_KEY) || "null"); } catch { saved = null; }
+      if (!saved || !modes[saved.mode]) return;
+      clearTimers();
+      chooseMode(saved.mode);
+      level = Math.max(1, Math.min(LEVELS_PER_MODE, Number(saved.level) || 1));
+      roundsPerRun = ROUNDS_PER_LEVEL * (LEVELS_PER_MODE - level + 1);
+      round = Math.max(0, Math.min(roundsPerRun - 1, Number(saved.round) || 0));
+      score = Math.max(0, Math.min(100, Number(saved.score) || 0));
+      errors = Number(saved.errors) || 0;
+      roundTimes = Array.isArray(saved.roundTimes) ? saved.roundTimes : [];
+      levelSuccesses = Number(saved.levelSuccesses) || 0;
+      levelErrors = Number(saved.levelErrors) || 0;
+      levelReactionTimes = Array.isArray(saved.levelReactionTimes) ? saved.levelReactionTimes : [];
+      state = "idle";
+      $("home").classList.add("hidden");
+      $("finished").classList.add("hidden");
+      $("play").classList.remove("hidden");
+      updateStats();
+      startRound();
+    }
+
+    function startRound() {
+      clearTimers();
+      saveResume();
+
+      boxes.forEach(box => {
+        box.disabled = true;
+        box.textContent = "❔";
+        box.classList.remove("teddy");
+      });
+
+      state = "waiting";
+      $("nextBtn").disabled = true;
+      $("instruction").textContent = `Level ${level}: teddy kahaan se aayega?`;
+      $("message").textContent = `Round ${round + 1} of ${ROUNDS_PER_LEVEL} — dhyan se dekho…`;
+
+      const delay = modes[selectedMode].delays[level - 1];
+
+      waitTimer = setTimeout(() => {
+        if (state !== "waiting") return;
+
+        const teddyIndex = Math.floor(Math.random() * boxes.length);
+        boxes[teddyIndex].textContent = "🧸";
+        boxes[teddyIndex].classList.add("teddy");
+        boxes.forEach(box => box.disabled = false);
+
+        state = "visible";
+        roundStartedAt = performance.now();
+
+        teddyTimer = setTimeout(() => {
+          if (state !== "visible") return;
+
+          errors++;
+          levelErrors++;
+          finishRound("Teddy chala gaya! Agla teddy aa raha hai.");
+        }, Math.max(900, delay + 700));
+      }, 500 + Math.random() * 900);
+    }
+
+    function clickBox(index) {
+      if (state !== "visible") return;
+
+      const teddyIndex = boxes.findIndex(box => box.textContent === "🧸");
+
+      if (index === teddyIndex) {
+        const reactionMs = Math.round(performance.now() - roundStartedAt);
+        roundTimes.push(reactionMs);
+        levelReactionTimes.push(reactionMs);
+        levelSuccesses++;
+
+        // Each successful teddy catch adds 10 points; score stays between 0 and 100.
+        score = Math.min(100, Math.max(0, score + 10));
+
+        finishRound(`Sahi! +10 points · Reaction time: ${reactionMs} ms ⚡`);
+      } else {
+        errors++;
+        levelErrors++;
+        finishRound("Galat box! Agla teddy aa raha hai.");
+      }
+
+      updateStats();
+    }
+
+    function finishRound(message) {
+      clearTimeout(teddyTimer);
+      teddyTimer = null;
+      state = "result";
+
+      boxes.forEach(box => {
+        box.disabled = true;
+      });
+
+      $("message").textContent = message;
+      round++;
+      saveResume();
+
+      $("nextBtn").disabled = true;
+      $("nextBtn").textContent =
+        round >= ROUNDS_PER_LEVEL && level < LEVELS_PER_MODE
+          ? "Next Level…"
+          : round >= roundsPerRun
+            ? "Finishing…"
+            : "Next Teddy…";
+
+      if (round >= roundsPerRun) {
+        void finishMode();
+      } else if (round % ROUNDS_PER_LEVEL === 0) {
+        void showReactionLevelResult();
+      } else {
+        continueTimer = setTimeout(startRound, 900);
+      }
+    }
+
+    async function showReactionLevelResult() {
+      const accuracy = Math.round((levelSuccesses / ROUNDS_PER_LEVEL) * 100);
+      const averageMs = levelReactionTimes.length
+        ? Math.round(levelReactionTimes.reduce((sum, time) => sum + time, 0) / levelReactionTimes.length)
+        : 0;
+      if (level < LEVELS_PER_MODE) {
+        localStorage.setItem(RESUME_KEY, JSON.stringify({
+          mode: selectedMode,
+          level: level + 1,
+          round,
+          score,
+          errors,
+          roundTimes,
+          levelSuccesses: 0,
+          levelErrors: 0,
+          levelReactionTimes: []
+        }));
+      }
+      await showGamePerformancePopup({
+        title: `Level ${level} complete`,
+        message: "Here is your teddy-catching performance for this level.",
+        stats: {
+          Mode: modes[selectedMode].name,
+          Score: `${levelSuccesses * 10} / 30`,
+          Accuracy: `${accuracy}%`,
+          "Successful catches": `${levelSuccesses} / ${ROUNDS_PER_LEVEL}`,
+          "Missed or wrong": levelErrors,
+          "Average reaction": averageMs ? `${averageMs} ms` : "—"
+        },
+        buttonLabel: "Continue to next level"
+      });
+      level++;
+      levelSuccesses = 0;
+      levelErrors = 0;
+      levelReactionTimes = [];
+      updateStats();
+      startRound();
+    }
+
+    async function finishMode() {
+      clearTimers();
+      localStorage.removeItem(RESUME_KEY);
+      state = "finished";
+
+      $("play").classList.add("hidden");
+      $("finished").classList.remove("hidden");
+
+      const successfulRounds = roundTimes.length;
+      const accuracy = Math.round((successfulRounds / roundsPerRun) * 100);
+      const averageReactionMs = successfulRounds
+        ? Math.round(
+            roundTimes.reduce((sum, time) => sum + time, 0) / successfulRounds
+          )
+        : 0;
+
+      // Keep the value sent to the backend inside its 0–100 range.
+      const backendScore = Math.max(0, Math.min(100, score));
+      let savedResult = null;
+
+      $("finishedTitle").textContent =
+        `${modes[selectedMode].name} Mode Complete!`;
+
+      $("summary").textContent =
+        `Score: ${backendScore}/100 · Successful catches: ${successfulRounds}/${roundsPerRun} · Accuracy: ${accuracy}% · Average reaction: ${averageReactionMs} ms`;
+
+      $("saveStatus").textContent = "Saving result…";
+
+      if (typeof saveGameResultToBackend !== "function") {
+        $("saveStatus").textContent =
+          "Backend helper not found. Check the ../JS/api.js path.";
+        return;
+      }
+
+      try {
+        savedResult = await saveGameResultToBackend({
+          game_name: "reaction_time",
+          mode: selectedMode,
+          level,
+          max_level: LEVELS_PER_MODE,
+          score: backendScore,
+          accuracy: Math.max(0, Math.min(100, accuracy)),
+          completion_time_seconds: Math.max(
+            0.1,
+            (roundTimes.reduce((sum, time) => sum + time, 0) +
+              errors * 1000) / 1000
+          ),
+          errors: Math.max(0, errors)
+        });
+
+        $("saveStatus").textContent = savedResult
+          ? `Result saved. Recommended next: ${savedResult.level_recommendation.recommended_mode} mode, level ${savedResult.level_recommendation.recommended_level}. ${savedResult.level_recommendation.reason}`
+          : "The backend rejected the result. Check the browser console and backend terminal.";
+      } catch (error) {
+        console.error("Could not save reaction game result:", error);
+        $("saveStatus").textContent =
+          "Could not save. Log in and make sure the backend is running.";
+      }
+
+      const recommendation = savedResult?.level_recommendation;
+      await showGamePerformancePopup({
+        title: `${modes[selectedMode].name} complete`,
+        message: recommendation?.reason || "Here is your overall reaction-time performance.",
+        stats: {
+          Score: `${backendScore} / 100`,
+          Accuracy: `${accuracy}%`,
+          "Successful catches": `${successfulRounds} / ${roundsPerRun}`,
+          "Last level catches": `${levelSuccesses} / ${ROUNDS_PER_LEVEL}`,
+          "Last level accuracy": `${Math.round((levelSuccesses / ROUNDS_PER_LEVEL) * 100)}%`,
+          "Last level misses": levelErrors,
+          "Average reaction": averageReactionMs ? `${averageReactionMs} ms` : "—",
+          ...(recommendation ? { "AI's next suggestion": `${recommendation.recommended_mode}, level ${recommendation.recommended_level}` } : {})
+        },
+        buttonLabel: "Back to game menu"
+      });
+      $("finished").classList.add("hidden");
+      $("home").classList.remove("hidden");
+      $("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+    }
+
+    document.querySelectorAll(".mode").forEach(button => {
+      button.addEventListener("click", () => chooseMode(button.dataset.mode));
+    });
+
+    $("startBtn").addEventListener("click", startGame);
+    $("resumeBtn").addEventListener("click", resumeGame);
+    $("nextBtn").addEventListener("click", () => {
+      // Rounds advance automatically; this button is intentionally inactive.
+    });
+    $("againBtn").addEventListener("click", startGame);
+
+    $("changeModeBtn").addEventListener("click", () => {
+      $("finished").classList.add("hidden");
+      $("home").classList.remove("hidden");
+      level = 1;
+      round = 0;
+      updateStats();
+    });
+
+    updateStats();
+    $("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+  </script>
+</body>
+</html>

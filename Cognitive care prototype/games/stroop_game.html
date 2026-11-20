@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stroop Colour Challenge</title>
+
+  <!-- Load the backend helper before the game code. -->
+  <script src="../JS/api.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      font-family: system-ui, "Segoe UI", Arial, sans-serif;
+      color: #172033;
+      background: #f4f7fb;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, #e6edff, transparent 38%), #f4f7fb;
+    }
+
+    button { font: inherit; cursor: pointer; }
+
+    .app {
+      width: min(960px, calc(100% - 24px));
+      min-height: 100vh;
+      margin: auto;
+      padding: 18px 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 15px;
+      background: #e1e8ff;
+      font-size: 25px;
+    }
+
+    h1, h2, p { margin-top: 0; }
+    h1 { margin-bottom: 2px; font-size: clamp(1.4rem, 4vw, 1.9rem); }
+    .subtitle, .muted { color: #5d687b; }
+    .subtitle { margin: 0; }
+
+    .tag {
+      padding: 7px 12px;
+      border: 1px solid #dce3ef;
+      border-radius: 999px;
+      background: white;
+      color: #5d687b;
+      white-space: nowrap;
+    }
+
+    .panel {
+      padding: clamp(16px, 3vw, 28px);
+      border: 1px solid #dce3ef;
+      border-radius: 20px;
+      background: white;
+      box-shadow: 0 12px 34px #192a4b17;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .eyebrow {
+      margin-bottom: 8px;
+      color: #3157c8;
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .intro { color: #5d687b; max-width: 700px; }
+    .rule-box {
+      padding: 14px 16px;
+      border: 1px solid #f2dfad;
+      border-radius: 14px;
+      background: #fff8e7;
+      color: #664d03;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .mode-card {
+      min-height: 130px;
+      padding: 16px;
+      border: 2px solid #dce3ef;
+      border-radius: 16px;
+      background: white;
+      text-align: left;
+    }
+
+    .mode-card.selected { border-color: #3157c8; background: #f1f4ff; }
+    .mode-card strong, .mode-card span { display: block; }
+    .mode-card strong { margin: 8px 0 5px; }
+    .mode-card span:last-child { color: #5d687b; font-size: .9rem; }
+    .mode-emoji { font-size: 24px; }
+
+    .primary, .secondary, .quiet {
+      min-height: 46px;
+      padding: 11px 18px;
+      border: 0;
+      border-radius: 12px;
+      font-weight: 750;
+    }
+
+    .primary { background: #3157c8; color: white; }
+    .primary:hover { background: #2443a3; }
+    .secondary { background: #e9edfa; color: #203d9b; }
+    .quiet { border: 1px solid #dce3ef; background: white; color: #5d687b; }
+    .primary:disabled { opacity: .5; cursor: not-allowed; }
+
+    .action-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .level-heading { display: flex; justify-content: space-between; gap: 12px; }
+    .level-heading p { margin-bottom: 0; }
+    .mode-levels { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .mode-levels span {
+      min-width: 24px; height: 24px; display: grid; place-items: center;
+      padding: 0 3px; border: 1px solid #dce3ef; border-radius: 6px;
+      background: #fff; color: #5d687b; font-size: .75rem; font-weight: 750;
+    }
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 14px 0; }
+    .stat, .result-card {
+      padding: 12px;
+      border: 1px solid #dce3ef;
+      border-radius: 12px;
+      text-align: center;
+      background: #f8faff;
+    }
+    .stat small, .result-card span { display: block; color: #5d687b; }
+    .stat strong { font-size: 1.15rem; }
+
+    .progress-track {
+      height: 10px;
+      margin: 12px 0 18px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: #e9edf5;
+    }
+
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, #3157c8, #6b8bff);
+      transition: width .2s;
+    }
+
+    .question-box {
+      padding: 18px 12px;
+      border: 1px solid #e5eaf7;
+      border-radius: 18px;
+      background: #f8faff;
+      text-align: center;
+    }
+
+    .instruction { margin-bottom: 8px; font-weight: 700; }
+    #stimulus { margin: 8px 0; font-size: clamp(2.5rem, 10vw, 5rem); font-weight: 900; }
+    .question-hint, #roundNote { color: #5d687b; }
+    .timer-display { font-weight: 800; color: #203d9b; }
+    .timer-display.urgent { color: #b42318; }
+
+    .answer-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .answer-btn {
+      min-height: 52px;
+      border: 2px solid #dce3ef;
+      border-radius: 12px;
+      background: white;
+      font-weight: 800;
+    }
+
+    .answer-btn:hover { border-color: #3157c8; background: #eef2ff; }
+    .answer-btn:disabled { opacity: .65; cursor: default; }
+    .feedback { min-height: 25px; margin: 10px 0; font-weight: 800; text-align: center; }
+    .feedback.good { color: #16794b; }
+    .feedback.bad { color: #b42318; }
+    .round-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .small-note { color: #5d687b; font-size: .9rem; }
+
+    .result-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 18px 0; }
+    .result-card { text-align: left; }
+    .result-card strong { display: block; margin-top: 4px; font-size: 1.4rem; }
+    footer { margin-top: auto; padding-top: 14px; color: #5d687b; text-align: center; font-size: .85rem; }
+
+    @media (max-width: 700px) {
+      .mode-grid { grid-template-columns: 1fr; }
+      .mode-card { min-height: auto; }
+    }
+
+    @media (max-width: 500px) {
+      header { align-items: flex-start; }
+      .tag { display: none; }
+      .answer-grid { grid-template-columns: repeat(2, 1fr); }
+      .round-bottom { align-items: stretch; flex-direction: column; }
+      .result-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header>
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">🧠</div>
+        <div>
+          <h1>Stroop Colour Challenge</h1>
+          <p class="subtitle">Focus on the ink colour, not the word.</p>
+        </div>
+      </div>
+      <div class="tag">Cognitive game · Practice</div>
+    </header>
+
+    <section id="homeScreen" class="screen active panel">
+      <p class="eyebrow">Welcome</p>
+      <h2>Ready to test your focus?</h2>
+      <p class="intro">
+        Choose the colour of the letters, even when the word names a different colour.
+      </p>
+      <div class="rule-box">
+        <strong>Example:</strong> If the word RED is printed in blue, choose <strong>BLUE</strong>.
+      </div>
+
+      <div class="mode-grid">
+        <button class="mode-card selected" id="easyModeBtn" type="button">
+          <span class="mode-emoji">🌱</span>
+          <strong>Easy Mode</strong>
+          <span>10 levels · 5 questions · 6 seconds each</span>
+          <span class="mode-levels" aria-label="Easy mode levels 1 through 10"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></span>
+        </button>
+        <button class="mode-card" id="mediumModeBtn" type="button">
+          <span class="mode-emoji">🌿</span>
+          <strong>Medium Mode</strong>
+          <span>10 levels · 5 questions · 4 seconds each</span>
+          <span class="mode-levels" aria-label="Medium mode levels 1 through 10"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></span>
+        </button>
+        <button class="mode-card" id="hardModeBtn" type="button">
+          <span class="mode-emoji">⚡</span>
+          <strong>Hard Mode</strong>
+          <span>15 levels · 10 questions · 3 seconds each</span>
+          <span class="mode-levels" aria-label="Hard mode levels 1 through 15"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span><span>11</span><span>12</span><span>13</span><span>14</span><span>15</span></span>
+        </button>
+      </div>
+
+      <button class="primary" id="startBtn" type="button">Start game →</button>
+      <button class="quiet" id="resumeBtn" type="button" hidden>Continue from saved level</button>
+    </section>
+
+    <section id="gameScreen" class="screen panel">
+      <div class="level-heading">
+        <div>
+          <p class="eyebrow" id="gameModeLabel">Easy Mode</p>
+          <h2 id="gameTitle">Level 1</h2>
+          <p class="muted" id="levelSubtitle"></p>
+        </div>
+        <button class="quiet" id="quitBtn" type="button">Exit level</button>
+      </div>
+
+
+      <div class="stats-row">
+        <div class="stat"><small>Question</small><strong id="questionCount"></strong></div>
+        <div class="stat"><small>Score</small><strong id="liveScore">0</strong></div>
+        <div class="stat"><small>Accuracy</small><strong id="liveAccuracy">—</strong></div>
+      </div>
+
+      <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+
+      <div class="question-box">
+        <p class="instruction">Which colour are the letters?</p>
+        <div id="stimulus" aria-live="polite">BLUE</div>
+        <p class="question-hint">Ignore what the word says. Look at its colour.</p>
+        <p id="timerDisplay" class="timer-display">Time left: 6 seconds</p>
+      </div>
+
+      <div id="answerGrid" class="answer-grid"></div>
+      <p id="feedback" class="feedback" aria-live="polite"></p>
+
+      <div class="round-bottom">
+        <p id="roundNote" class="small-note">Answer before the timer runs out.</p>
+        <button class="primary" id="nextBtn" type="button" disabled>Next question →</button>
+      </div>
+    </section>
+
+    <section id="resultScreen" class="screen panel">
+      <p class="eyebrow" id="resultEyebrow">Level complete</p>
+      <h2 id="resultTitle">Nice work!</h2>
+      <p id="resultMessage" class="intro">Here is how you did in this round.</p>
+
+      <div class="result-grid">
+        <div class="result-card"><span>Score</span><strong id="finalScore"></strong></div>
+        <div class="result-card"><span>Accuracy</span><strong id="finalAccuracy"></strong></div>
+        <div class="result-card"><span>Correct answers</span><strong id="finalCorrect"></strong></div>
+        <div class="result-card"><span>Average response time</span><strong id="finalTime"></strong></div>
+      </div>
+
+      <p id="saveStatus" class="small-note" aria-live="polite"></p>
+      <div class="action-row">
+        <button class="primary" id="continueBtn" type="button">Next level →</button>
+        <button class="secondary" id="retryBtn" type="button">Retry this level</button>
+        <button class="secondary" id="downloadBtn" type="button">Download result (JSON)</button>
+        <button class="quiet" id="homeBtn" type="button">Change mode</button>
+      </div>
+    </section>
+
+    <footer>Practice game only — results are not a medical diagnosis.</footer>
+  </main>
+
+  <script>
+    "use strict";
+
+    const COLOURS = [
+      { name: "RED", hex: "#d93636" },
+      { name: "BLUE", hex: "#2878d0" },
+      { name: "GREEN", hex: "#21834b" },
+      { name: "YELLOW", hex: "#d2a900" },
+      { name: "PURPLE", hex: "#8246af" }
+    ];
+
+    const LEVELS = {
+      easy: { count: 10, questions: 5, seconds: 6, colours: 4 },
+      medium: { count: 10, questions: 5, seconds: 4, colours: 4 },
+      hard: { count: 15, questions: 10, seconds: 3, colours: 5 }
+    };
+
+    const state = {
+      mode: "easy",
+      level: 1,
+      questionIndex: 0,
+      score: 0,
+      correct: 0,
+      answers: [],
+      current: null,
+      questionStartedAt: 0,
+      timer: null,
+      tick: null,
+      answered: false
+    };
+
+    const $ = id => document.getElementById(id);
+    const screenIds = ["homeScreen", "gameScreen", "resultScreen"];
+    const RESUME_KEY = "neurocare_resume_stroop";
+
+    function showScreen(id) {
+      screenIds.forEach(screenId => $(screenId).classList.toggle("active", screenId === id));
+    }
+
+    function settings() {
+      return LEVELS[state.mode];
+    }
+
+    function clearTimers() {
+      clearTimeout(state.timer);
+      clearInterval(state.tick);
+      state.timer = null;
+      state.tick = null;
+    }
+
+    function shuffle(items) {
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function chooseMode(mode) {
+      state.mode = mode;
+      ["easy", "medium", "hard"].forEach(name => {
+        $(name + "ModeBtn").classList.toggle("selected", name === mode);
+      });
+    }
+
+    function startLevel() {
+      clearTimers();
+      localStorage.setItem(RESUME_KEY, JSON.stringify({ mode: state.mode, level: state.level }));
+      state.questionIndex = 0;
+      state.score = 0;
+      state.correct = 0;
+      state.answers = [];
+      showScreen("gameScreen");
+      $("gameModeLabel").textContent = state.mode[0].toUpperCase() + state.mode.slice(1) + " Mode";
+      $("gameTitle").textContent = "Level " + state.level;
+      $("levelSubtitle").textContent = "Identify the colour of the letters.";
+      showQuestion();
+    }
+
+    function makeQuestion() {
+      const available = COLOURS.slice(0, settings().colours);
+      const fontColour = available[Math.floor(Math.random() * available.length)];
+      let wordColour = fontColour;
+
+      if (Math.random() < 0.65 && available.length > 1) {
+        const alternatives = available.filter(colour => colour.name !== fontColour.name);
+        wordColour = alternatives[Math.floor(Math.random() * alternatives.length)];
+      }
+
+      return { word: wordColour.name, fontColour, options: shuffle(available) };
+    }
+
+    function showQuestion() {
+      clearTimers();
+      state.answered = false;
+      state.current = makeQuestion();
+      state.questionStartedAt = performance.now();
+
+      const cfg = settings();
+      $("questionCount").textContent = `${state.questionIndex + 1} / ${cfg.questions}`;
+      $("liveScore").textContent = state.score;
+      $("liveAccuracy").textContent = state.answers.length
+        ? Math.round((state.correct / state.answers.length) * 100) + "%"
+        : "—";
+      $("progressFill").style.width = (state.questionIndex / cfg.questions * 100) + "%";
+      $("stimulus").textContent = state.current.word;
+      $("stimulus").style.color = state.current.fontColour.hex;
+      $("feedback").textContent = "";
+      $("feedback").className = "feedback";
+      $("nextBtn").disabled = true;
+      $("nextBtn").textContent =
+        state.questionIndex === cfg.questions - 1 ? "See results →" : "Next question →";
+
+      const grid = $("answerGrid");
+      grid.replaceChildren();
+
+      state.current.options.forEach(colour => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "answer-btn";
+        button.textContent = colour.name;
+        button.addEventListener("click", () => answerQuestion(colour.name));
+        grid.appendChild(button);
+      });
+
+      const deadline = performance.now() + cfg.seconds * 1000;
+      $("timerDisplay").classList.remove("urgent");
+      $("timerDisplay").textContent = `Time left: ${cfg.seconds.toFixed(1)} seconds`;
+
+      state.timer = setTimeout(timeOut, cfg.seconds * 1000);
+      state.tick = setInterval(() => {
+        if (state.answered) return;
+        const remaining = Math.max(0, (deadline - performance.now()) / 1000);
+        $("timerDisplay").textContent = `Time left: ${remaining.toFixed(1)} seconds`;
+        $("timerDisplay").classList.toggle("urgent", remaining <= 1.5);
+      }, 100);
+    }
+
+    function recordAnswer(selected, timedOut = false) {
+      if (state.answered) return;
+
+      clearTimers();
+      state.answered = true;
+
+      const elapsed = Math.min(
+        settings().seconds * 1000,
+        Math.max(0, performance.now() - state.questionStartedAt)
+      );
+      const correct = !timedOut && selected === state.current.fontColour.name;
+
+      if (correct) {
+        state.correct++;
+        state.score += 10;
+      }
+
+      state.answers.push({
+        selected,
+        correct,
+        responseTimeMs: timedOut ? settings().seconds * 1000 : Math.round(elapsed)
+      });
+
+      [...$("answerGrid").children].forEach(button => {
+        button.disabled = true;
+      });
+
+      $("feedback").textContent = timedOut
+        ? `Time is up. The letters were ${state.current.fontColour.name}.`
+        : correct
+          ? "Correct! You identified the letter colour."
+          : `Not quite. The letter colour was ${state.current.fontColour.name}.`;
+
+      $("feedback").className = "feedback " + (correct ? "good" : "bad");
+      $("liveScore").textContent = state.score;
+      $("liveAccuracy").textContent =
+        Math.round((state.correct / state.answers.length) * 100) + "%";
+      $("progressFill").style.width =
+        ((state.questionIndex + 1) / settings().questions * 100) + "%";
+      $("timerDisplay").textContent = timedOut ? "Time is up!" : "Answered";
+      $("nextBtn").disabled = true;
+      $("nextBtn").textContent = "Next question automatically…";
+
+      // Keep the player in the current level and advance after feedback,
+      // regardless of whether the answer was correct, wrong, or timed out.
+      state.timer = setTimeout(nextQuestion, 900);
+    }
+
+    function answerQuestion(selected) {
+      recordAnswer(selected);
+    }
+
+    function timeOut() {
+      recordAnswer(null, true);
+    }
+
+    function nextQuestion() {
+      if (!state.answered) return;
+
+      if (state.questionIndex + 1 >= settings().questions) {
+        finishLevel();
+      } else {
+        state.questionIndex++;
+        showQuestion();
+      }
+    }
+
+    async function finishLevel() {
+      clearTimers();
+
+      const cfg = settings();
+      const total = cfg.questions;
+      const accuracy = Math.round((state.correct / total) * 100);
+      const averageMs = state.answers.reduce(
+        (sum, answer) => sum + answer.responseTimeMs, 0
+      ) / Math.max(1, state.answers.length);
+
+      const result = {
+        game: "stroop_test",
+        mode: state.mode,
+        level: state.level,
+        score: state.score,
+        max_score: total * 10,
+        accuracy,
+        correct_answers: state.correct,
+        incorrect_answers: state.answers.filter(answer => !answer.correct).length,
+        average_response_time_ms: Math.round(averageMs),
+        answers: state.answers
+      };
+
+      $("saveStatus").textContent = "Saving result…";
+
+      let saved = false;
+      if (typeof saveGameResultToBackend === "function") {
+        try {
+          saved = await saveGameResultToBackend({
+          game_name: "stroop_test",
+          mode: state.mode,
+          level: state.level,
+          max_level: settings().count,
+          score: Math.round((result.score / Math.max(1, result.max_score)) * 100),
+          accuracy,
+          completion_time_seconds: Math.max(
+            0.1,
+            state.answers.reduce((sum, answer) => sum + answer.responseTimeMs, 0) / 1000
+          ),
+          errors: result.incorrect_answers
+          });
+          $("saveStatus").textContent = saved
+            ? `Result saved. Recommended next: ${saved.level_recommendation.recommended_mode} mode, level ${saved.level_recommendation.recommended_level}. ${saved.level_recommendation.reason}`
+            : "The backend rejected the result. Check the browser console and backend terminal.";
+        } catch (error) {
+          console.error("Could not save Stroop result:", error);
+          $("saveStatus").textContent = "Could not save the result to the backend.";
+        }
+      } else {
+        $("saveStatus").textContent =
+          "Backend helper was not found. Check that ../JS/api.js exists and loads.";
+      }
+
+      $("finalScore").textContent = `${state.score} / ${total * 10}`;
+      $("finalAccuracy").textContent = accuracy + "%";
+      $("finalCorrect").textContent = `${state.correct} / ${total}`;
+      $("finalTime").textContent = (averageMs / 1000).toFixed(2) + " s";
+      $("resultEyebrow").textContent =
+        `${state.mode[0].toUpperCase() + state.mode.slice(1)} Mode · Level ${state.level} complete`;
+
+      $("continueBtn").textContent =
+        state.level < cfg.count ? `Try Level ${state.level + 1} →` : "Play again";
+
+      state.lastResult = result;
+      const recommendation = saved?.level_recommendation;
+      await showGamePerformancePopup({
+        title: `${state.mode[0].toUpperCase() + state.mode.slice(1)} mode · Level ${state.level} complete`,
+        message: recommendation?.reason || "Here is your performance for this level.",
+        stats: {
+          Score: `${state.score} / ${total * 10}`,
+          Accuracy: `${accuracy}%`,
+          "Correct answers": `${state.correct} / ${total}`,
+          "Average response time": `${(averageMs / 1000).toFixed(2)} seconds`,
+          ...(recommendation ? { "AI's next suggestion": `${recommendation.recommended_mode}, level ${recommendation.recommended_level}` } : {})
+        },
+        buttonLabel: "Continue"
+      });
+
+      if (recommendation) {
+        chooseMode(recommendation.recommended_mode);
+        state.level = Math.min(recommendation.recommended_level, settings().count);
+      } else if (state.level < settings().count) {
+        state.level++;
+      } else {
+        state.level = 1;
+      }
+      startLevel();
+    }
+
+    function downloadResult() {
+      if (!state.lastResult) return;
+
+      const blob = new Blob(
+        [JSON.stringify(state.lastResult, null, 2)],
+        { type: "application/json" }
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `stroop_result_${state.mode}_level_${state.level}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    $("easyModeBtn").addEventListener("click", () => chooseMode("easy"));
+    $("mediumModeBtn").addEventListener("click", () => chooseMode("medium"));
+    $("hardModeBtn").addEventListener("click", () => chooseMode("hard"));
+    $("startBtn").addEventListener("click", async () => {
+      localStorage.removeItem(RESUME_KEY);
+      $("resumeBtn").hidden = true;
+      const recommendation = await getRecommendedGameLevel("stroop_test");
+      if (recommendation) {
+        chooseMode(recommendation.recommended_mode);
+        state.level = Math.min(recommendation.recommended_level, settings().count);
+      } else {
+        state.level = 1;
+      }
+      startLevel();
+    });
+    $("resumeBtn").addEventListener("click", () => {
+      let saved;
+      try { saved = JSON.parse(localStorage.getItem(RESUME_KEY) || "null"); } catch { saved = null; }
+      if (!saved || !LEVELS[saved.mode]) return;
+      chooseMode(saved.mode);
+      state.level = Math.max(1, Math.min(LEVELS[saved.mode].count, Number(saved.level) || 1));
+      startLevel();
+    });
+    $("nextBtn").addEventListener("click", nextQuestion);
+    $("quitBtn").addEventListener("click", () => {
+      clearTimers();
+      showScreen("homeScreen");
+      $("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+    });
+    $("retryBtn").addEventListener("click", startLevel);
+    $("continueBtn").addEventListener("click", async () => {
+      const recommendation = await getRecommendedGameLevel("stroop_test");
+      if (recommendation) {
+        chooseMode(recommendation.recommended_mode);
+        state.level = Math.min(recommendation.recommended_level, settings().count);
+      } else if (state.level < settings().count) state.level++;
+      else state.level = 1;
+      startLevel();
+    });
+    $("downloadBtn").addEventListener("click", downloadResult);
+    $("homeBtn").addEventListener("click", () => {
+      showScreen("homeScreen");
+      $("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+    });
+    $("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+  </script>
+</body>
+</html>

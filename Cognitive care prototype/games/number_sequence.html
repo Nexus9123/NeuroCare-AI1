@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Number Sequence Memory</title>
+
+  <!-- This path assumes sequence.html is inside the games folder. -->
+  <script src="../JS/api.js"></script>
+
+  <style>
+    :root {
+      --page: #f4f6fb;
+      --panel: #fff;
+      --ink: #202b3e;
+      --muted: #68758a;
+      --line: #e0e6f0;
+      --blue: #3268d8;
+      --blue-dark: #2452b4;
+      --green: #21834b;
+      --red: #c43f4b;
+      --shadow: 0 10px 28px rgba(35, 52, 85, .08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: clamp(8px, 2vh, 18px) 16px;
+      background: radial-gradient(circle at top left, #fff 0, var(--page) 60%);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid #9ab8ff;
+      outline-offset: 2px;
+    }
+
+    .app {
+      max-width: 900px;
+      min-height: calc(100vh - 36px);
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 11px; }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      background: #e8efff;
+      border: 1px solid #d5e2ff;
+      border-radius: 14px;
+      font-size: 24px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.25rem, 3vw, 1.8rem);
+      letter-spacing: -.035em;
+    }
+
+    .subtitle { margin: 3px 0 0; color: var(--muted); font-size: .9rem; }
+
+    .tag {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #edf3ff;
+      color: var(--blue-dark);
+      font-size: .78rem;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .panel {
+      flex: 1;
+      padding: clamp(16px, 3vh, 26px);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .screen { display: none; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      color: var(--blue);
+      font-size: .75rem;
+      font-weight: 800;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.3rem, 2.8vw, 1.75rem);
+      letter-spacing: -.025em;
+    }
+
+    .intro { max-width: 720px; margin: 0; color: var(--muted); line-height: 1.5; }
+
+    .rule-box {
+      margin: 13px 0 16px;
+      padding: 11px 14px;
+      border: 1px solid #e0e9ff;
+      border-radius: 12px;
+      background: #f5f8ff;
+      line-height: 1.45;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 11px;
+    }
+
+    .mode-card {
+      min-height: 125px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: white;
+      color: var(--ink);
+      text-align: left;
+      transition: .15s ease;
+    }
+
+    .mode-card:hover { border-color: #a9c0f5; transform: translateY(-1px); }
+    .mode-card.selected { padding: 13px; border: 2px solid var(--blue); background: #f5f8ff; }
+    .mode-emoji { font-size: 1.4rem; }
+    .mode-card strong { font-size: 1rem; }
+    .mode-card span:last-child { color: var(--muted); font-size: .83rem; line-height: 1.4; }
+
+    .action-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+
+    .btn {
+      padding: 10px 15px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      font-size: .93rem;
+      font-weight: 700;
+      transition: background .15s, transform .12s;
+    }
+
+    .btn:active { transform: translateY(1px); }
+    .primary { background: var(--blue); color: #fff; }
+    .primary:hover { background: var(--blue-dark); }
+    .quiet { border-color: #e4e9f1; background: #f1f4f9; color: var(--ink); }
+    .quiet:hover { background: #e8edf6; }
+    .btn:disabled { opacity: .55; cursor: not-allowed; }
+
+    .small-note { margin: 10px 0 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+
+    .level-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .level-heading p { margin: 4px 0 0; color: var(--muted); line-height: 1.4; font-size: .9rem; }
+
+    .mode-card .mode-levels { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+    .mode-card .mode-levels span {
+      min-width: 23px; height: 23px; display: grid; place-items: center;
+      padding: 0 3px; border: 1px solid var(--line); border-radius: 6px;
+      background: #fff; color: var(--muted); font-size: .75rem; font-weight: 750;
+    }
+
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 14px 0 8px; }
+    .stat { padding: 9px 12px; border: 1px solid #edf0f6; border-radius: 11px; background: #f5f7fc; }
+    .stat small { display: block; margin-bottom: 2px; color: var(--muted); font-size: .8rem; }
+    .stat strong { font-size: .98rem; }
+
+    .progress-track {
+      height: 7px;
+      flex-shrink: 0;
+      margin: 7px 0 13px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e9edf5;
+    }
+
+    .progress-fill { width: 0; height: 100%; background: var(--blue); transition: width .25s; }
+
+    .memory-box {
+      min-height: clamp(145px, 25vh, 220px);
+      max-height: 285px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #f7f9fe;
+      text-align: center;
+    }
+
+    .memory-label { margin-bottom: 7px; color: var(--muted); font-size: .9rem; }
+
+    #sequenceDisplay {
+      color: var(--blue-dark);
+      font-size: clamp(2rem, 7vh, 3.8rem);
+      font-weight: 850;
+      letter-spacing: .14em;
+      line-height: 1.25;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+
+    #memoryHint { margin: 8px 0 0; color: var(--muted); font-size: .88rem; }
+    .countdown {
+      min-width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 9px;
+      border-radius: 50%;
+      background: #e8efff;
+      color: var(--blue-dark);
+      font-size: 1.1rem;
+      font-weight: 850;
+    }
+
+    .entry-area { flex-shrink: 0; margin-top: 12px; }
+    .entry-area label { display: block; margin-bottom: 6px; font-size: .94rem; font-weight: 750; }
+
+    #sequenceInput {
+      width: 100%;
+      min-height: 49px;
+      padding: 10px 13px;
+      border: 1px solid #cfd8e8;
+      border-radius: 11px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 1.2rem;
+      font-weight: 750;
+      letter-spacing: .12em;
+    }
+
+    #sequenceInput:disabled { background: #f3f5f9; color: #7a8496; }
+
+    .feedback { min-height: 21px; margin: 7px 0 0; color: var(--muted); font-size: .88rem; font-weight: 700; }
+    .feedback.good { color: var(--green); }
+    .feedback.bad { color: var(--red); }
+
+    .game-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 9px; }
+
+    .results-top { text-align: center; }
+    .result-mark {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      margin: 0 auto 10px;
+      border-radius: 16px;
+      background: #e8f7ef;
+      color: var(--green);
+      font-size: 25px;
+    }
+
+    .score-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
+    .score-card { padding: 13px 8px; border: 1px solid #edf0f6; border-radius: 12px; background: #f5f7fc; text-align: center; }
+    .score-card strong { display: block; margin-bottom: 3px; font-size: clamp(1.15rem, 3vw, 1.65rem); }
+    .score-card span { color: var(--muted); font-size: .82rem; }
+
+    .result-detail { padding: 12px 15px; border: 1px solid var(--line); border-radius: 12px; background: #f8faff; font-size: .9rem; line-height: 1.7; }
+    footer { flex-shrink: 0; padding: 10px 0 0; color: var(--muted); font-size: .76rem; text-align: center; }
+
+    @media (max-width: 620px) {
+      body { padding: 8px; }
+      .app { min-height: calc(100vh - 16px); }
+      header { margin-bottom: 9px; }
+      .tag { display: none; }
+      .brand-icon { width: 38px; height: 38px; }
+      .mode-grid { grid-template-columns: 1fr; gap: 7px; }
+      .mode-card { min-height: 0; display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 2px 8px; padding: 10px 12px; }
+      .mode-card.selected { padding: 9px 11px; }
+      .mode-emoji { grid-row: span 2; }
+      .mode-card span:last-child { grid-column: 2; }
+      .stats-row { gap: 5px; margin: 10px 0 6px; }
+      .stat { padding: 8px 7px; }
+      .stat small { font-size: .73rem; }
+      .stat strong { font-size: .88rem; }
+      .memory-box { min-height: 130px; }
+      .game-actions .btn { padding: 9px 12px; }
+      .score-grid { gap: 6px; }
+      .score-card { padding: 11px 5px; }
+      .level-heading { gap: 8px; }
+      .level-heading .btn { padding: 9px 11px; white-space: nowrap; }
+    }
+  </style>
+</head>
+
+<body>
+<main class="app">
+  <header>
+    <div class="brand">
+      <div class="brand-icon" aria-hidden="true">🧠</div>
+      <div>
+        <h1>Number Sequence Memory</h1>
+        <p class="subtitle">Remember the numbers and enter them in the same order.</p>
+      </div>
+    </div>
+    <div class="tag">Cognitive game · Memory practice</div>
+  </header>
+
+  <section id="homeScreen" class="screen active panel">
+    <p class="eyebrow">Welcome</p>
+    <h2>Ready to test your memory?</h2>
+    <p class="intro">
+      Remember the digit sequence, then enter it in the same order. Complete all 10 levels to finish a session.
+    </p>
+    <div class="rule-box">
+      <strong>How to play:</strong> Watch the sequence → remember the order → enter every digit after it disappears.
+    </div>
+
+    <div class="mode-grid" role="group" aria-label="Choose difficulty mode">
+      <button class="mode-card selected" id="easyModeBtn" type="button" aria-pressed="true">
+        <span class="mode-emoji" aria-hidden="true">🌱</span>
+        <strong>Easy Mode</strong>
+        <span>Short sequences · 10 seconds to memorise</span>
+        <span class="mode-levels" aria-label="Easy mode levels 1 through 10"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></span>
+      </button>
+      <button class="mode-card" id="mediumModeBtn" type="button" aria-pressed="false">
+        <span class="mode-emoji" aria-hidden="true">🎯</span>
+        <strong>Medium Mode</strong>
+        <span>Longer sequences · 7 seconds to memorise</span>
+        <span class="mode-levels" aria-label="Medium mode levels 1 through 10"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></span>
+      </button>
+      <button class="mode-card" id="hardModeBtn" type="button" aria-pressed="false">
+        <span class="mode-emoji" aria-hidden="true">⚡</span>
+        <strong>Hard Mode</strong>
+        <span>Longest sequences · 5 seconds to memorise</span>
+        <span class="mode-levels" aria-label="Hard mode levels 1 through 10"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></span>
+      </button>
+    </div>
+
+    <div class="action-row">
+      <button class="btn primary" id="startBtn" type="button">Start game →</button>
+      <button class="btn quiet" id="resumeBtn" type="button" hidden>Continue from saved level</button>
+    </div>
+  </section>
+
+  <section id="gameScreen" class="screen panel">
+    <div class="level-heading">
+      <div>
+        <p class="eyebrow" id="modeLabel">Easy Mode</p>
+        <h2 id="levelTitle">Level 1 of 10</h2>
+        <p id="levelDescription">Watch carefully, then enter the sequence in order.</p>
+      </div>
+      <button class="btn quiet" id="exitBtn" type="button">Exit game</button>
+    </div>
+
+
+    <div class="stats-row">
+      <div class="stat"><small>Level</small><strong id="levelStat">1 / 10</strong></div>
+      <div class="stat"><small>Sequence length</small><strong id="lengthStat">3 digits</strong></div>
+      <div class="stat"><small>Viewing time</small><strong id="timeStat">10 sec</strong></div>
+    </div>
+
+    <div class="progress-track" aria-label="Level progress">
+      <div id="progressFill" class="progress-fill"></div>
+    </div>
+
+    <div class="memory-box">
+      <div class="memory-label" id="memoryLabel">Memorise this sequence</div>
+      <div id="sequenceDisplay" aria-live="polite">583</div>
+      <div id="countdown" class="countdown" aria-label="Seconds remaining">10</div>
+      <p id="memoryHint">The sequence will disappear when the timer reaches zero.</p>
+    </div>
+
+    <form id="answerForm" class="entry-area" autocomplete="off">
+      <label for="sequenceInput">Enter the digits in the same order</label>
+      <input
+        id="sequenceInput"
+        type="text"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        maxlength="20"
+        placeholder="Type the number sequence"
+        disabled
+      >
+      <p class="small-note" id="inputHelp">The answer field unlocks after the sequence disappears.</p>
+      <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+      <div class="game-actions">
+        <button class="btn quiet" id="clearBtn" type="button" disabled>Clear answer</button>
+        <button class="btn primary" id="submitBtn" type="submit" disabled>Submit answer →</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="resultScreen" class="screen panel">
+    <div class="results-top">
+      <div class="result-mark" aria-hidden="true">✓</div>
+      <p class="eyebrow">Session complete</p>
+      <h2 id="resultTitle">You completed Easy Mode</h2>
+      <p class="intro" style="margin:0 auto">Here is a summary of your number-sequence memory session.</p>
+    </div>
+
+    <div class="score-grid">
+      <div class="score-card"><strong id="accuracyValue">0%</strong><span>Correct sequences</span></div>
+      <div class="score-card"><strong id="correctValue">0 / 10</strong><span>Levels correct</span></div>
+      <div class="score-card"><strong id="avgEntryValue">—</strong><span>Average answer time</span></div>
+    </div>
+
+    <div class="result-detail" id="resultDetail"></div>
+    <p id="saveStatus" class="small-note" role="status" aria-live="polite"></p>
+
+    <div class="action-row">
+      <button class="btn quiet" id="downloadBtn" type="button">Download results (JSON)</button>
+      <button class="btn primary" id="homeBtn" type="button">Change mode</button>
+      <button class="btn quiet" id="replayBtn" type="button">Play this mode again</button>
+    </div>
+  </section>
+
+  <footer>Practice game only — results are not a medical diagnosis.</footer>
+</main>
+
+<script>
+"use strict";
+
+const TOTAL_LEVELS = 10;
+
+const MODE_CONFIG = {
+  easy: {
+    name: "Easy Mode",
+    seconds: 10,
+    lengths: [3, 3, 3, 4, 4, 4, 5, 5, 5, 6]
+  },
+  medium: {
+    name: "Medium Mode",
+    seconds: 7,
+    lengths: [4, 4, 5, 5, 6, 6, 7, 7, 8, 8]
+  },
+  hard: {
+    name: "Hard Mode",
+    seconds: 5,
+    lengths: [5, 5, 6, 6, 7, 7, 8, 9, 9, 10]
+  }
+};
+
+const $ = id => document.getElementById(id);
+const screens = ["homeScreen", "gameScreen", "resultScreen"];
+const RESUME_KEY = "neurocare_resume_number_sequence";
+
+const state = {
+  mode: "easy",
+  level: 1,
+  recommendedLevel: 1,
+  sequence: "",
+  viewingTimer: null,
+  countdownTimer: null,
+  answerTimer: null,
+  results: [],
+  sessionStart: null,
+  latestExport: null,
+  locked: false,
+  actualDisplayMs: 0,
+  inputStart: 0,
+  answerSeconds: 0
+};
+
+function showScreen(id) {
+  screens.forEach(screenId => {
+    $(screenId).classList.toggle("active", screenId === id);
+  });
+}
+
+function selectMode(mode) {
+  state.mode = mode;
+
+  ["easy", "medium", "hard"].forEach(name => {
+    const button = $(name + "ModeBtn");
+    const selected = name === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+}
+
+function levelSettings() {
+  const config = MODE_CONFIG[state.mode];
+
+  return {
+    length: config.lengths[state.level - 1],
+    seconds: config.seconds
+  };
+}
+
+async function showNumberLevelResult() {
+  const lastResult = state.results[state.results.length - 1];
+  if (state.level >= TOTAL_LEVELS) {
+    await finishGame();
+    return;
+  }
+  await showGamePerformancePopup({
+    title: `Level ${state.level} complete`,
+    message: lastResult.correct
+      ? "You remembered the number sequence correctly."
+      : `This one was tricky. The correct sequence was ${lastResult.target_sequence}.`,
+    stats: {
+      Mode: state.mode,
+      Result: lastResult.correct ? "Correct" : "Incorrect",
+      "Sequence length": `${lastResult.sequence_length} digits`,
+      "Answer time": `${(lastResult.answer_time_ms / 1000).toFixed(2)} seconds`,
+      "Levels completed": `${state.results.length} / ${TOTAL_LEVELS}`
+    },
+    buttonLabel: "Continue to next level"
+  });
+  advanceLevel();
+}
+
+function randomSequence(length) {
+  let sequence = "";
+
+  for (let i = 0; i < length; i++) {
+    sequence += Math.floor(Math.random() * 10);
+  }
+
+  return sequence;
+}
+
+function setFeedback(message, kind = "") {
+  $("feedback").textContent = message;
+  $("feedback").className = "feedback" + (kind ? " " + kind : "");
+}
+
+function setAnswerEnabled(enabled) {
+  $("sequenceInput").disabled = !enabled;
+  $("submitBtn").disabled = !enabled;
+  $("clearBtn").disabled = !enabled;
+}
+
+function clearTimers() {
+  clearTimeout(state.viewingTimer);
+  clearInterval(state.countdownTimer);
+  clearTimeout(state.answerTimer);
+
+  state.viewingTimer = null;
+  state.countdownTimer = null;
+  state.answerTimer = null;
+}
+
+async function startGame() {
+  clearTimers();
+  localStorage.removeItem(RESUME_KEY);
+  $("resumeBtn").hidden = true;
+
+  const recommendation = await getRecommendedGameLevel("number_sequence");
+  if (recommendation) {
+    selectMode(recommendation.recommended_mode);
+    state.recommendedLevel = recommendation.recommended_level;
+  }
+
+  state.level = Math.min(state.recommendedLevel || 1, TOTAL_LEVELS);
+  state.results = [];
+  state.sessionStart = new Date().toISOString();
+  state.latestExport = null;
+
+  $("saveStatus").textContent = "";
+  showScreen("gameScreen");
+  startLevel();
+}
+
+function continueSavedGame() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(RESUME_KEY) || "null"); } catch { saved = null; }
+  if (!saved || !MODE_CONFIG[saved.mode]) return startGame();
+  clearTimers();
+  selectMode(saved.mode);
+  state.level = Math.max(1, Math.min(TOTAL_LEVELS, Number(saved.level) || 1));
+  state.results = [];
+  state.sessionStart = new Date().toISOString();
+  state.latestExport = null;
+  showScreen("gameScreen");
+  startLevel();
+}
+
+function startLevel() {
+  clearTimers();
+
+  state.locked = false;
+
+  const modeConfig = MODE_CONFIG[state.mode];
+  const settings = levelSettings();
+  localStorage.setItem(RESUME_KEY, JSON.stringify({ mode: state.mode, level: state.level }));
+
+  state.sequence = randomSequence(settings.length);
+  state.actualDisplayMs = 0;
+
+  $("modeLabel").textContent = modeConfig.name;
+  $("levelTitle").textContent = `Level ${state.level} of ${TOTAL_LEVELS}`;
+  $("levelStat").textContent = `${state.level} / ${TOTAL_LEVELS}`;
+  $("lengthStat").textContent = `${settings.length} digits`;
+  $("timeStat").textContent = `${settings.seconds} sec`;
+  $("levelDescription").textContent = "Watch carefully, then enter the sequence in order.";
+  $("progressFill").style.width = `${((state.level - 1) / TOTAL_LEVELS) * 100}%`;
+
+  $("memoryLabel").textContent = "Memorise this sequence";
+  $("sequenceDisplay").textContent = state.sequence;
+  $("countdown").textContent = String(settings.seconds);
+  $("countdown").style.visibility = "visible";
+  $("memoryHint").textContent = "The sequence will disappear when the timer reaches zero.";
+
+  $("sequenceInput").value = "";
+  $("sequenceInput").maxLength = settings.length;
+  $("sequenceInput").placeholder = `Enter ${settings.length} digits`;
+  $("inputHelp").textContent =
+    `Enter exactly ${settings.length} digits, including any leading zeros. The field unlocks after the sequence disappears.`;
+
+  setFeedback("");
+  setAnswerEnabled(false);
+
+  const shownAt = performance.now();
+  let remaining = settings.seconds;
+
+  state.countdownTimer = setInterval(() => {
+    remaining--;
+    $("countdown").textContent = String(Math.max(0, remaining));
+  }, 1000);
+
+  state.viewingTimer = setTimeout(() => {
+    clearInterval(state.countdownTimer);
+    state.actualDisplayMs = Math.round(performance.now() - shownAt);
+
+    $("sequenceDisplay").textContent = "● ".repeat(settings.length).trim();
+    $("memoryLabel").textContent = "Now recall the sequence";
+
+    state.answerSeconds = { easy: 20, medium: 16, hard: 12 }[state.mode];
+
+    $("countdown").textContent = String(state.answerSeconds);
+    $("countdown").style.visibility = "visible";
+    $("memoryHint").textContent =
+      `You have ${state.answerSeconds} seconds to enter and submit your answer.`;
+
+    setAnswerEnabled(true);
+    state.inputStart = performance.now();
+    $("sequenceInput").focus();
+
+    let answerRemaining = state.answerSeconds;
+
+    state.countdownTimer = setInterval(() => {
+      answerRemaining--;
+      $("countdown").textContent = String(Math.max(0, answerRemaining));
+    }, 1000);
+
+    state.answerTimer = setTimeout(timeoutLevel, state.answerSeconds * 1000);
+  }, settings.seconds * 1000);
+}
+
+function timeoutLevel() {
+  if (state.locked || $("sequenceInput").disabled) return;
+
+  state.locked = true;
+  clearInterval(state.countdownTimer);
+  setAnswerEnabled(false);
+
+  const answer = $("sequenceInput").value.trim();
+  const answerTime = state.answerSeconds * 1000;
+
+  state.results.push({
+    level: state.level,
+    mode: state.mode,
+    sequence_length: state.sequence.length,
+    display_time_seconds: levelSettings().seconds,
+    actual_display_time_ms: state.actualDisplayMs,
+    target_sequence: state.sequence,
+    user_answer: answer,
+    correct: false,
+    answer_time_ms: answerTime,
+    timed_out: true
+  });
+
+  $("memoryLabel").textContent = "Time is up";
+  $("sequenceDisplay").textContent = state.sequence;
+  $("countdown").style.visibility = "hidden";
+  $("memoryHint").textContent = `The correct sequence was ${state.sequence}.`;
+  setFeedback("Time is up. This level is marked incorrect.", "bad");
+
+  void showNumberLevelResult();
+}
+
+function submitAnswer(event) {
+  event.preventDefault();
+
+  if (state.locked || $("sequenceInput").disabled) return;
+
+  const answer = $("sequenceInput").value.trim();
+  const length = state.sequence.length;
+
+  if (!/^[0-9]+$/.test(answer)) {
+    setFeedback("Please enter digits from 0 to 9 only.", "bad");
+    return;
+  }
+
+  if (answer.length !== length) {
+    setFeedback(`Please enter all ${length} digits.`, "bad");
+    return;
+  }
+
+  state.locked = true;
+  clearTimeout(state.answerTimer);
+  clearInterval(state.countdownTimer);
+  setAnswerEnabled(false);
+
+  const answerTime = Math.round(performance.now() - state.inputStart);
+  const correct = answer === state.sequence;
+
+  state.results.push({
+    level: state.level,
+    mode: state.mode,
+    sequence_length: length,
+    display_time_seconds: levelSettings().seconds,
+    actual_display_time_ms: state.actualDisplayMs,
+    target_sequence: state.sequence,
+    user_answer: answer,
+    correct,
+    answer_time_ms: answerTime,
+    timed_out: false
+  });
+
+  setFeedback(
+    correct
+      ? "Correct sequence! Well remembered."
+      : `Not quite. The correct sequence was ${state.sequence}.`,
+    correct ? "good" : "bad"
+  );
+
+  $("sequenceDisplay").textContent = state.sequence;
+  $("memoryLabel").textContent = correct ? "Correct sequence" : "Correct answer";
+  $("countdown").style.visibility = "hidden";
+  $("memoryHint").textContent = `Your answer time was ${(answerTime / 1000).toFixed(2)} seconds.`;
+
+  void showNumberLevelResult();
+}
+
+function advanceLevel() {
+  if (state.level < TOTAL_LEVELS) {
+    state.level++;
+    startLevel();
+  } else {
+    finishGame();
+  }
+}
+
+function buildExport() {
+  const correctCount = state.results.filter(result => result.correct).length;
+  const total = state.results.length;
+  const answerTimes = state.results
+    .map(result => result.answer_time_ms)
+    .filter(Number.isFinite);
+
+  return {
+    game: "Number Sequence Memory",
+    timestamp: new Date().toISOString(),
+    session_started_at: state.sessionStart,
+    mode: state.mode,
+    total_levels: TOTAL_LEVELS,
+    levels_completed: total,
+    results: state.results,
+    summary: {
+      correct_sequences: correctCount,
+      accuracy_percent: total ? Math.round((correctCount / total) * 10000) / 100 : 0,
+      average_answer_time_ms: answerTimes.length
+        ? Math.round(answerTimes.reduce((sum, time) => sum + time, 0) / answerTimes.length)
+        : null,
+      total_digits_presented: state.results.reduce(
+        (sum, result) => sum + result.sequence_length,
+        0
+      )
+    }
+  };
+}
+
+async function finishGame() {
+  localStorage.removeItem(RESUME_KEY);
+  state.latestExport = buildExport();
+
+  const summary = state.latestExport.summary;
+  const total = Math.max(1, state.results.length);
+  const errors = state.results.filter(result => !result.correct).length;
+  const totalAnswerTimeMs = state.results.reduce(
+    (sum, result) => sum + result.answer_time_ms,
+    0
+  );
+
+  $("progressFill").style.width = "100%";
+  $("resultTitle").textContent = `You completed ${MODE_CONFIG[state.mode].name}`;
+  $("accuracyValue").textContent = `${summary.accuracy_percent}%`;
+  $("correctValue").textContent = `${summary.correct_sequences} / ${TOTAL_LEVELS}`;
+  $("avgEntryValue").textContent = summary.average_answer_time_ms === null
+    ? "—"
+    : `${(summary.average_answer_time_ms / 1000).toFixed(2)} s`;
+
+  $("resultDetail").replaceChildren();
+
+  [
+    ["Mode", MODE_CONFIG[state.mode].name],
+    ["Levels completed", `${state.results.length} of ${TOTAL_LEVELS}`],
+    ["Total digits shown", String(summary.total_digits_presented)]
+  ].forEach(([label, value]) => {
+    const row = document.createElement("div");
+    const strong = document.createElement("strong");
+    strong.textContent = `${label}: `;
+    row.append(strong, document.createTextNode(value));
+    $("resultDetail").appendChild(row);
+  });
+
+  $("saveStatus").textContent = "Saving your result…";
+
+  if (typeof saveGameResultToBackend !== "function") {
+    $("saveStatus").textContent =
+      "Backend helper was not found. Check that ../JS/api.js exists and loads.";
+    return;
+  }
+
+  try {
+    const saved = await saveGameResultToBackend({
+      game_name: "number_sequence",
+      mode: state.mode,
+      level: state.results.length ? state.results[state.results.length - 1].level : TOTAL_LEVELS,
+      max_level: TOTAL_LEVELS,
+      score: Math.round((summary.correct_sequences / total) * 100),
+      accuracy: Math.round(summary.accuracy_percent),
+      completion_time_seconds: Math.max(0.1, totalAnswerTimeMs / 1000),
+      errors
+    });
+
+    $("saveStatus").textContent = saved
+      ? `Result saved. Recommended next: ${saved.level_recommendation.recommended_mode} mode, level ${saved.level_recommendation.recommended_level}. ${saved.level_recommendation.reason}`
+      : "The backend rejected the result. Check the browser console and backend terminal.";
+    await showGamePerformancePopup({
+      title: "Number Sequence Memory complete",
+      message: saved?.level_recommendation?.reason || "Here is your overall session performance.",
+      stats: {
+        Mode: MODE_CONFIG[state.mode].name,
+        "Last level": state.results[state.results.length - 1]?.correct ? "Correct" : "Incorrect",
+        "Last sequence length": `${state.results[state.results.length - 1]?.sequence_length || 0} digits`,
+        "Overall accuracy": `${summary.accuracy_percent}%`,
+        "Correct sequences": `${summary.correct_sequences} / ${total}`,
+        "Average answer time": summary.average_answer_time_ms === null
+          ? "—"
+          : `${(summary.average_answer_time_ms / 1000).toFixed(2)} seconds`,
+        ...(saved?.level_recommendation ? {
+          "Recommended next": `${saved.level_recommendation.recommended_mode}, level ${saved.level_recommendation.recommended_level}`
+        } : {})
+      },
+      buttonLabel: "Back to game menu"
+    });
+    showScreen("homeScreen");
+  } catch (error) {
+    console.error("Could not save sequence memory result:", error);
+    $("saveStatus").textContent =
+      "Could not save the result. Check that you are logged in and the backend is running.";
+    await showGamePerformancePopup({
+      title: "Number Sequence Memory complete",
+      message: "Your overall session performance is ready.",
+      stats: {
+        Mode: MODE_CONFIG[state.mode].name,
+        "Overall accuracy": `${summary.accuracy_percent}%`,
+        "Correct sequences": `${summary.correct_sequences} / ${total}`
+      },
+      buttonLabel: "Back to game menu"
+    });
+    showScreen("homeScreen");
+  }
+}
+
+function downloadJSON() {
+  if (!state.latestExport) return;
+
+  const blob = new Blob(
+    [JSON.stringify(state.latestExport, null, 2)],
+    { type: "application/json" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+
+  link.href = url;
+  link.download = `number_memory_${state.mode}_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exitGame() {
+  if (!confirm("Exit this game? You can continue again from this level later.")) return;
+
+  clearTimers();
+  setAnswerEnabled(false);
+  showScreen("homeScreen");
+  $("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+}
+
+$("easyModeBtn").addEventListener("click", () => selectMode("easy"));
+$("mediumModeBtn").addEventListener("click", () => selectMode("medium"));
+$("hardModeBtn").addEventListener("click", () => selectMode("hard"));
+$("startBtn").addEventListener("click", startGame);
+$("resumeBtn").addEventListener("click", continueSavedGame);
+$("answerForm").addEventListener("submit", submitAnswer);
+$("clearBtn").addEventListener("click", () => {
+  $("sequenceInput").value = "";
+  $("sequenceInput").focus();
+});
+$("exitBtn").addEventListener("click", exitGame);
+$("downloadBtn").addEventListener("click", downloadJSON);
+$("homeBtn").addEventListener("click", () => {
+  clearTimers();
+  showScreen("homeScreen");
+  $("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+});
+$("replayBtn").addEventListener("click", startGame);
+
+$("sequenceInput").addEventListener("input", () => {
+  $("sequenceInput").value = $("sequenceInput").value
+    .replace(/[^0-9]/g, "")
+    .slice(0, Number($("sequenceInput").maxLength));
+});
+
+selectMode("easy");
+$("resumeBtn").hidden = !localStorage.getItem(RESUME_KEY);
+</script>
+</body>
+</html>

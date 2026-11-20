@@ -1,0 +1,162 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Cognitive Assessment</title>
+
+    <link rel="stylesheet" href="CSS/style.css">
+</head>
+
+<body>
+
+    <div class="assessment-container">
+
+        <div class="language-switch">
+            <button type="button" id="englishBtn"
+                onclick="setLanguage('en')">English</button>
+
+            <button type="button" id="hindiBtn"
+                onclick="setLanguage('hi')">हिन्दी</button>
+        </div>
+
+        <h1 data-en="🧠 Cognitive Assessment"
+            data-hi="🧠 याददाश्त और ध्यान की क्षमता">
+            🧠 Cognitive Assessment
+        </h1>
+
+        <p class="assessment-subtitle"
+           data-en="Let's understand your cognitive performance."
+           data-hi="आइए, याददाश्त और ध्यान देने की क्षमता को समझें।">
+            Let's understand your cognitive performance.
+        </p>
+
+        <div class="assessment-card">
+
+            <h2 data-en="Before You Start"
+                data-hi="शुरू करने से पहले">
+                Before You Start
+            </h2>
+
+            <p data-en="This assessment contains five short cognitive activities. Each activity focuses on a different mental skill."
+               data-hi="इसमें पाँच छोटी गतिविधियाँ हैं। हर गतिविधि में याद रखने, ध्यान देने या सही जवाब चुनने का अभ्यास होगा।">
+                This assessment contains five short cognitive activities.
+                Each activity focuses on a different mental skill.
+            </p>
+
+            <div class="instructions">
+
+                <div class="instruction-item">
+                    🧠 <strong data-en="Memory"
+                               data-hi="याददाश्त">Memory</strong>
+                    <span data-en="Remember and match identical pictures."
+                          data-hi="एक जैसी तस्वीरों को याद रखें और उनके जोड़े मिलाएँ।">
+                        Remember and match identical pictures.
+                    </span>
+                </div>
+
+                <div class="instruction-item">
+                    🔢 <strong data-en="Working Memory"
+                               data-hi="अंकों को याद रखना">Working Memory</strong>
+                    <span data-en="Remember numbers and select them in the correct order."
+                          data-hi="अंकों को याद रखें और सही क्रम में चुनें।">
+                        Remember numbers and select them in the correct order.
+                    </span>
+                </div>
+
+                <div class="instruction-item">
+                    🔷 <strong data-en="Pattern Recognition"
+                               data-hi="पैटर्न पहचानना">Pattern Recognition</strong>
+                    <span data-en="Find the correct pattern in shapes or pictures."
+                          data-hi="तस्वीरों और आकारों में सही पैटर्न पहचानें।">
+                        Find the correct pattern in shapes or pictures.
+                    </span>
+                </div>
+
+                <div class="instruction-item">
+                    🎯 <strong data-en="Attention"
+                               data-hi="ध्यान देना">Attention</strong>
+                    <span data-en="Focus on the correct information."
+                          data-hi="सही जानकारी पर ध्यान दें।">
+                        Focus on the correct information.
+                    </span>
+                </div>
+
+                <div class="instruction-item">
+                    ⚡ <strong data-en="Processing Speed"
+                               data-hi="देखकर जवाब देना">Processing Speed</strong>
+                    <span data-en="Look at the screen and choose your answer."
+                          data-hi="स्क्रीन पर देखकर जवाब दें।">
+                        Look at the screen and choose your answer.
+                    </span>
+                </div>
+
+            </div>
+
+            <div class="important-note">
+
+                <strong data-en="Important Notice"
+                        data-hi="ज़रूरी सूचना">
+                    Important Notice
+                </strong>
+
+                <p data-en="This system supports cognitive assessment and practice. It is not a medical diagnostic tool and cannot diagnose dementia, Alzheimer's disease, or other neurological disorders."
+                   data-hi="यह सिस्टम याददाश्त और दूसरी मानसिक क्षमताओं के अभ्यास में मदद करता है। यह मेडिकल जाँच नहीं है और डिमेंशिया या अल्ज़ाइमर रोग का पता नहीं लगा सकता।">
+                    This system supports cognitive assessment and practice.
+                    It is not a medical diagnostic tool and cannot diagnose
+                    dementia, Alzheimer's disease, or other neurological disorders.
+                </p>
+
+            </div>
+
+            <button type="button" id="startBtn"
+                    onclick="startGames()"
+                    data-en="Start Assessment"
+                    data-hi="अभ्यास शुरू करें">
+                Start Assessment
+            </button>
+
+        </div>
+
+    </div>
+
+    <script src="JS/app.js"></script>
+
+    <script>
+        function startGames() {
+            window.location.href = "games.html";
+        }
+
+        function setLanguage(language) {
+
+            document.documentElement.lang =
+                language === "hi" ? "hi" : "en";
+
+            document.querySelectorAll("[data-en][data-hi]")
+                .forEach(function(element) {
+                    element.textContent =
+                        element.getAttribute("data-" + language);
+                });
+
+            document.getElementById("englishBtn").classList.toggle(
+                "active-language", language === "en"
+            );
+
+            document.getElementById("hindiBtn").classList.toggle(
+                "active-language", language === "hi"
+            );
+
+            localStorage.setItem("preferredLanguage", language);
+        }
+
+        const savedLanguage =
+            localStorage.getItem("preferredLanguage") || "en";
+
+        setLanguage(savedLanguage);
+    </script>
+
+</body>
+</html>

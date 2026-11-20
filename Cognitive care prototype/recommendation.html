@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognitive Care - Recommended Games</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; padding: 24px; background: #d0e8f2; color: #24334d; font-family: "Segoe UI", Arial, sans-serif; }
+    main { width: min(100%, 900px); margin: 28px auto; padding: 30px; border-radius: 18px; background: white; box-shadow: 0 8px 28px #263b581c; }
+    h1 { margin: 0 0 8px; color: #1e3d59; }
+    .muted { color: #65718a; line-height: 1.5; }
+    #status { min-height: 24px; margin: 20px 0; color: #52617b; }
+    .recommendations { display: grid; gap: 14px; }
+    .game-card { padding: 18px; border: 1px solid #dfe7f3; border-left: 5px solid #2b580c; border-radius: 12px; background: #fbfcff; }
+    .game-card h2 { margin: 0 0 9px; color: #1e3d59; font-size: 20px; }
+    .game-card p { margin: 8px 0 14px; line-height: 1.5; }
+    .why { color: #52617b; }
+    .stats { color: #38527a; font-size: 14px; }
+    a { display: inline-block; padding: 10px 17px; border-radius: 8px; background: #2b580c; color: white; font-weight: 700; text-decoration: none; }
+    a:hover { background: #1e3d59; }
+    .actions { margin-top: 24px; }
+    @media (max-width: 600px) { body { padding: 12px; } main { margin: 8px auto; padding: 20px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>🎯 Recommended Games</h1>
+    <p class="muted">Suggestions are based on games you have not tried yet and your recent accuracy. They are for practice, not a medical assessment.</p>
+    <p id="status" role="status" aria-live="polite">Loading your recommendations…</p>
+    <section id="recommendations" class="recommendations" aria-label="Personalized game suggestions"></section>
+    <div class="actions"><a href="dashboard.html">← Back to Dashboard</a></div>
+  </main>
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:8000";
+    const statusElement = document.getElementById("status");
+    const listElement = document.getElementById("recommendations");
+
+    async function loadRecommendations() {
+      const token = localStorage.getItem("access_token") || localStorage.getItem("accessToken") || localStorage.getItem("token");
+      if (!token) {
+        statusElement.textContent = "Please log in first, then return here to see personalized game suggestions.";
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/recommendation/games`, {
+          headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (response.status === 401) throw new Error("Your login expired. Log in again, then reopen this page.");
+        if (!response.ok) throw new Error(data.detail || `Backend returned status ${response.status}.`);
+
+        const suggestions = Array.isArray(data.recommendations) ? data.recommendations : [];
+        listElement.replaceChildren();
+        if (!suggestions.length) {
+          statusElement.textContent = "No game suggestions are available yet.";
+          return;
+        }
+
+        suggestions.forEach((item, index) => {
+          const card = document.createElement("article");
+          card.className = "game-card";
+          const title = document.createElement("h2");
+          title.textContent = `${index + 1}. ${item.title}`;
+          const reason = document.createElement("p");
+          reason.className = "why";
+          reason.textContent = item.reason;
+          const stats = document.createElement("p");
+          stats.className = "stats";
+          stats.textContent = item.games_played
+            ? `Played ${item.games_played} time(s) · Recent average accuracy: ${item.average_accuracy}%`
+            : "Not played yet · Try it to build a broader practice history";
+          const link = document.createElement("a");
+          link.href = item.url;
+          link.textContent = "Play this game →";
+          card.append(title, reason, stats, link);
+          listElement.appendChild(card);
+        });
+        statusElement.textContent = "Here are your top practice suggestions.";
+      } catch (error) {
+        console.error("Could not load game recommendations:", error);
+        statusElement.textContent = `${error.message} Make sure the backend is running at ${API_BASE_URL}.`;
+      }
+    }
+
+    loadRecommendations();
+  </script>
+</body>
+</html>

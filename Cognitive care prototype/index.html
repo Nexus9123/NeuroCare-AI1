@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognitive Care - Login</title>
+  <link rel="stylesheet" href="./CSS/style.css">
+  <style>
+    .auth-switch { margin-top: 18px; text-align: center; }
+    .auth-switch button { margin-top: 10px; }
+    .auth-note { margin-top: 10px; color: #52617b; line-height: 1.4; }
+    .login-container { padding: 22px 0; }
+    .login-box[hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="login-container">
+    <div class="logo" aria-hidden="true">🧠</div>
+    <h1>Cognitive Care</h1>
+    <p class="subtitle">Cognitive Assessment &amp; Training</p>
+
+    <section id="login-panel" class="login-box">
+      <h2>Log in</h2>
+      <label for="username">Email</label>
+      <input type="email" id="username" placeholder="Enter your email" autocomplete="email" required>
+      <label for="password">Password</label>
+      <input type="password" id="password" placeholder="Enter password" autocomplete="current-password" required>
+      <button type="button" onclick="login()">Login</button>
+      <p class="auth-switch">New to Cognitive Care?<br>
+        <button type="button" onclick="showAuthPanel('register')">Create an account</button>
+      </p>
+    </section>
+
+    <section id="register-panel" class="login-box" hidden>
+      <h2>Create your account</h2>
+      <p class="auth-note">Your age helps choose a starting difficulty for each game.</p>
+      <label for="register-email">Email</label>
+      <input type="email" id="register-email" placeholder="Enter your email" autocomplete="email" required>
+      <label for="register-password">Password</label>
+      <input type="password" id="register-password" placeholder="At least 8 characters" autocomplete="new-password" minlength="8" required>
+      <label for="register-age">Age</label>
+      <input type="number" id="register-age" min="1" max="120" step="1" placeholder="Enter your age" required>
+      <button type="button" onclick="registerAccount()">Register</button>
+      <p class="auth-switch">Already have an account?<br>
+        <button type="button" onclick="showAuthPanel('login')">Back to login</button>
+      </p>
+    </section>
+
+    <section id="age-panel" class="login-box" hidden>
+      <h2>Enter your age</h2>
+      <p class="auth-note">We use your age to choose your starting game difficulty.</p>
+      <label for="login-age">Age</label>
+      <input type="number" id="login-age" min="1" max="120" step="1" placeholder="Enter your age" required>
+      <button type="button" onclick="saveMissingAge()">Save age and continue</button>
+    </section>
+
+    <p id="message" role="status" aria-live="polite"></p>
+  </main>
+  <script src="JS/app.js"></script>
+</body>
+</html>

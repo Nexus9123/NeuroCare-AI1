@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cognitive Care - Progress</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px;
+      background: #d0e8f2;
+      color: #24334d;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    main {
+      width: min(100%, 950px);
+      margin: 24px auto;
+      padding: 28px;
+      border-radius: 18px;
+      background: white;
+      box-shadow: 0 8px 28px #263b581c;
+    }
+
+    h1 { margin-top: 0; color: #1e3d59; }
+    .muted { color: #65718a; }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 22px 0;
+    }
+
+    .card {
+      padding: 16px;
+      border-radius: 12px;
+      background: #f3f6fb;
+      text-align: center;
+    }
+
+    .card strong {
+      display: block;
+      margin-top: 6px;
+      color: #244ba8;
+      font-size: 24px;
+    }
+
+    #status {
+      min-height: 24px;
+      margin: 16px 0;
+      color: #52617b;
+    }
+
+    .result {
+      margin: 12px 0;
+      padding: 16px;
+      border: 1px solid #e0e6f0;
+      border-radius: 12px;
+      background: #fbfcff;
+    }
+
+    .result h3 { margin: 0 0 8px; text-transform: capitalize; }
+    .result p { margin: 5px 0; }
+
+    .section-title { margin: 28px 0 12px; color: #1e3d59; }
+    .game-summaries {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .game-summary {
+      padding: 17px;
+      border: 1px solid #dfe7f3;
+      border-left: 5px solid #2b580c;
+      border-radius: 12px;
+      background: #fbfcff;
+    }
+    .game-summary h3 { margin: 0 0 12px; color: #1e3d59; }
+    .game-summary p { margin: 7px 0; }
+    .game-summary .recommendation { margin-top: 12px; padding: 10px 12px; border-radius: 9px; background: #eef5fc; color: #24416b; }
+    .attempts { margin-top: 24px; }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    a, button {
+      display: inline-block;
+      padding: 11px 18px;
+      border: 0;
+      border-radius: 9px;
+      background: #2b580c;
+      color: white;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    button:hover, a:hover { background: #1e3d59; }
+
+    @media (max-width: 600px) {
+      body { padding: 12px; }
+      main { margin: 8px auto; padding: 18px; }
+      .summary { grid-template-columns: 1fr; }
+      .game-summaries { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <h1>📈 Your Progress</h1>
+    <p class="muted">Game results saved to your account.</p>
+
+    <section class="summary">
+      <div class="card">Games played<strong id="gamesPlayed">0</strong></div>
+      <div class="card">Average accuracy<strong id="averageAccuracy">—</strong></div>
+      <div class="card">Average score<strong id="averageScore">—</strong></div>
+    </section>
+
+    <p id="status" role="status" aria-live="polite">Loading your results…</p>
+    <h2 class="section-title">Overall results by game</h2>
+    <section id="gameSummaries" class="game-summaries"></section>
+    <h2 class="section-title attempts">Individual attempts</h2>
+    <section id="results"></section>
+
+    <div class="actions">
+      <button id="refreshButton" type="button">Refresh</button>
+      <a href="dashboard.html">← Back to Dashboard</a>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:8000";
+
+    const statusElement = document.getElementById("status");
+    const resultsElement = document.getElementById("results");
+    const gameSummariesElement = document.getElementById("gameSummaries");
+    const summaryCards = new Map();
+
+    function getAccessToken() {
+      return (
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("accessToken") ||
+        localStorage.getItem("token")
+      );
+    }
+
+    function readableGameName(name) {
+      const names = {
+        memory_card: "Memory Card Match",
+        number_sequence: "Number Sequence Memory",
+        sequence_recall: "Sequence Recall",
+        sequence_memory: "Sequence Memory (older results)",
+        stroop_test: "Stroop Colour Challenge",
+        reaction_time: "Teddy Reaction Challenge",
+        pattern_recognition: "Pattern Recognition"
+      };
+      if (names[name]) return names[name];
+      return (name || "Game")
+        .replaceAll("_", " ")
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+    }
+
+    function showResults(results) {
+      resultsElement.replaceChildren();
+      gameSummariesElement.replaceChildren();
+      summaryCards.clear();
+
+      document.getElementById("gamesPlayed").textContent = results.length;
+
+      if (results.length === 0) {
+        document.getElementById("averageAccuracy").textContent = "—";
+        document.getElementById("averageScore").textContent = "—";
+        gameSummariesElement.textContent = "No game results yet. Play a game to see its total and average results here.";
+        statusElement.textContent = "No game results yet. Play a game to see your progress here.";
+        return;
+      }
+
+      const averageAccuracy =
+        results.reduce((sum, item) => sum + Number(item.accuracy || 0), 0) / results.length;
+
+      const averageScore =
+        results.reduce((sum, item) => sum + Number(item.score || 0), 0) / results.length;
+
+      document.getElementById("averageAccuracy").textContent =
+        `${Math.round(averageAccuracy)}%`;
+
+      document.getElementById("averageScore").textContent =
+        `${Math.round(averageScore)} / 100`;
+
+      const games = new Map();
+      const chronologicalResults = [...results].sort(
+        (left, right) => Number(left.id || 0) - Number(right.id || 0)
+      );
+      chronologicalResults.forEach(item => {
+        if (!games.has(item.game_name)) games.set(item.game_name, []);
+        games.get(item.game_name).push(item);
+      });
+
+      games.forEach((attempts, gameName) => {
+        const scores = attempts.map(item => Number(item.score) || 0);
+        const accuracies = attempts.map(item => Number(item.accuracy) || 0);
+        const totalScore = scores.reduce((sum, score) => sum + score, 0);
+        const averageGameScore = totalScore / attempts.length;
+        const averageGameAccuracy = accuracies.reduce((sum, value) => sum + value, 0) / attempts.length;
+        const bestScore = Math.max(...scores);
+        const latest = attempts[attempts.length - 1];
+        let trendText = "Recent trend: not enough plays yet";
+        if (attempts.length >= 2) {
+          const recent = attempts.slice(-3);
+          const previous = attempts.slice(-6, -3);
+          const recentAverage = recent.reduce((sum, item) => sum + (Number(item.accuracy) || 0), 0) / recent.length;
+          const previousAverage = previous.length
+            ? previous.reduce((sum, item) => sum + (Number(item.accuracy) || 0), 0) / previous.length
+            : Number(attempts[0].accuracy) || 0;
+          const change = Math.round(recentAverage - previousAverage);
+          trendText = previous.length
+            ? `Recent accuracy trend: ${change > 0 ? "+" : ""}${change}% vs earlier plays`
+            : `Recent accuracy trend: ${change > 0 ? "+" : ""}${change}% since your first play`;
+        }
+
+        const card = document.createElement("article");
+        card.className = "game-summary";
+        const title = document.createElement("h3");
+        title.textContent = readableGameName(gameName);
+
+        const stats = [
+          `Games played: ${attempts.length}`,
+          `Total score across all plays: ${Math.round(totalScore)}`,
+          `Average score: ${Math.round(averageGameScore)} / 100`,
+          `Average accuracy: ${Math.round(averageGameAccuracy)}%`,
+          `Best score: ${Math.round(bestScore)} / 100`,
+          trendText,
+          latest.mode && latest.level
+            ? `Latest play: ${latest.mode} mode · Level ${latest.level}`
+            : "Latest play: level details unavailable"
+        ];
+        card.appendChild(title);
+        card.dataset.gameName = gameName;
+        stats.forEach(text => {
+          const line = document.createElement("p");
+          line.textContent = text;
+          card.appendChild(line);
+        });
+        gameSummariesElement.appendChild(card);
+        summaryCards.set(gameName, card);
+      });
+
+      [...chronologicalResults].reverse().forEach(item => {
+        const card = document.createElement("article");
+        card.className = "result";
+
+        const title = document.createElement("h3");
+        title.textContent = readableGameName(item.game_name);
+
+        const score = document.createElement("p");
+        score.textContent = `Score: ${item.score} / 100`;
+
+        const accuracy = document.createElement("p");
+        accuracy.textContent = `Accuracy: ${item.accuracy}%`;
+
+        const time = document.createElement("p");
+        time.textContent =
+          `Completion time: ${Number(item.completion_time_seconds).toFixed(2)} seconds`;
+
+        const errors = document.createElement("p");
+        errors.textContent = `Errors: ${item.errors}`;
+
+        const difficulty = document.createElement("p");
+        difficulty.textContent = item.mode && item.level
+          ? `Played: ${item.mode} mode · Level ${item.level}`
+          : "Played before adaptive level tracking was added";
+
+        card.append(title, score, accuracy, time, errors, difficulty);
+        resultsElement.appendChild(card);
+      });
+
+      statusElement.textContent = `Showing ${results.length} saved game result(s).`;
+    }
+
+    async function loadGameRecommendations(results, token) {
+      const gameNames = [...new Set(results.map(item => item.game_name).filter(Boolean))];
+      await Promise.all(gameNames.map(async gameName => {
+        const card = summaryCards.get(gameName);
+        if (!card) return;
+
+        const line = document.createElement("p");
+        line.className = "recommendation";
+        line.textContent = "Loading next-level suggestion…";
+        card.appendChild(line);
+
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/recommendation/level/${encodeURIComponent(gameName)}`,
+            { headers: { "Authorization": `Bearer ${token}`, "Accept": "application/json" } }
+          );
+          if (!response.ok) throw new Error("Recommendation unavailable");
+          const recommendation = await response.json();
+          line.textContent = `Suggested next: ${recommendation.recommended_mode} mode · Level ${recommendation.recommended_level}. ${recommendation.reason}`;
+        } catch (error) {
+          line.textContent = "Next-level suggestion is unavailable right now.";
+        }
+      }));
+    }
+
+    async function loadProgress() {
+      const token = getAccessToken();
+
+      if (!token) {
+        statusElement.textContent =
+          "You are not logged in. Please log in through the backend-connected login page, then return here.";
+        resultsElement.replaceChildren();
+        return;
+      }
+
+      statusElement.textContent = "Loading your results…";
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/results/me`, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        if (response.status === 401) {
+          throw new Error("Your login token is missing or expired. Log in again, then reopen Progress.");
+        }
+
+        if (!response.ok) {
+          throw new Error(`Backend returned status ${response.status}.`);
+        }
+
+        const data = await response.json();
+        const results = Array.isArray(data.results) ? data.results : [];
+        showResults(results);
+        await loadGameRecommendations(results, token);
+      } catch (error) {
+        console.error("Could not load progress:", error);
+        statusElement.textContent =
+          `${error.message} Make sure the backend is running at ${API_BASE_URL}.`;
+        resultsElement.replaceChildren();
+      }
+    }
+
+    document.getElementById("refreshButton").addEventListener("click", loadProgress);
+    loadProgress();
+  </script>
+</body>
+</html>

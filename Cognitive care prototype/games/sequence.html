@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sequence Recall Game</title>
+  <script src="../JS/api.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: Arial, sans-serif;
+      color: white;
+      background: linear-gradient(135deg, #10152d, #292052);
+      padding: 20px;
+    }
+
+    .game {
+      width: min(100%, 420px);
+      text-align: center;
+      padding: 25px;
+      border-radius: 24px;
+      background: #ffffff12;
+      border: 1px solid #ffffff25;
+      box-shadow: 0 15px 50px #0005;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #c8c8e8;
+      font-size: 14px;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin: 22px 0;
+    }
+
+    .stat {
+      background: #ffffff12;
+      padding: 12px;
+      border-radius: 12px;
+      flex: 1;
+      margin: 4px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 24px;
+      margin-top: 5px;
+    }
+
+    #message {
+      min-height: 42px;
+      line-height: 1.5;
+      color: #e2dfff;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      max-width: 300px;
+      margin: 20px auto;
+    }
+
+    .pad {
+      aspect-ratio: 1;
+      border: 3px solid #ffffff25;
+      border-radius: 20px;
+      opacity: 0.72;
+      cursor: pointer;
+      transition: transform 0.12s, opacity 0.12s, filter 0.12s;
+      touch-action: manipulation;
+    }
+
+    .pad:active {
+      transform: scale(0.96);
+    }
+
+    .pad.lit {
+      opacity: 1;
+      filter: brightness(1.7);
+      transform: scale(0.96);
+    }
+
+    .red {
+      background: #ff4d68;
+    }
+
+    .blue {
+      background: #438cff;
+    }
+
+    .green {
+      background: #32d6a0;
+    }
+
+    .yellow {
+      background: #ffc84a;
+    }
+
+    button.action {
+      border: 0;
+      padding: 14px 24px;
+      border-radius: 12px;
+      background: #b7a4ff;
+      color: #19132e;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    button.action:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    .note {
+      font-size: 12px;
+      color: #bcb9d9;
+      margin-top: 15px;
+    }
+
+    a {
+      color: #d8d5f0;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="game">
+    <h1>🧠 Sequence Recall</h1>
+    <p class="subtitle">Watch the pattern. Remember it. Repeat it!</p>
+
+    <div class="stats">
+      <div class="stat">Level<strong id="level">0</strong></div>
+      <div class="stat">Score<strong id="score">0</strong></div>
+      <div class="stat">Best<strong id="best">0</strong></div>
+    </div>
+
+    <p id="message" aria-live="polite">Ready to test your memory?</p>
+
+    <div class="board">
+      <button class="pad red" data-id="0" aria-label="Red"></button>
+      <button class="pad blue" data-id="1" aria-label="Blue"></button>
+      <button class="pad green" data-id="2" aria-label="Green"></button>
+      <button class="pad yellow" data-id="3" aria-label="Yellow"></button>
+    </div>
+
+    <button class="action" id="start">▶ Start Game</button>
+    <button class="action" id="resume">Continue saved game</button>
+    <button class="action" id="reset">↻ Restart</button>
+
+    <p class="note">Each level adds one more color to remember.</p>
+    <p><a href="../games.html">Back to All Games</a></p>
+  </main>
+
+  <script>
+    const pads = [...document.querySelectorAll(".pad")];
+    const message = document.querySelector("#message");
+    const levelEl = document.querySelector("#level");
+    const scoreEl = document.querySelector("#score");
+    const bestEl = document.querySelector("#best");
+    const startBtn = document.querySelector("#start");
+
+    let sequence = [];
+    let position = 0;
+    let level = 0;
+    let score = 0;
+    let best = 0;
+    let playing = false;
+    let accepting = false;
+    let roundToken = 0;
+    let totalInputs = 0;
+    let correctInputs = 0;
+    let startedAt = 0;
+    const RESUME_KEY = "neurocare_resume_sequence_recall";
+
+    function updateStats() {
+      levelEl.textContent = level;
+      scoreEl.textContent = score;
+      bestEl.textContent = best;
+    }
+
+    function saveResume() {
+      localStorage.setItem(RESUME_KEY, JSON.stringify({ level, score, best, sequence, totalInputs, correctInputs }));
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function flash(id, duration = 400) {
+      const pad = pads[id];
+      pad.classList.add("lit");
+      await sleep(duration);
+      pad.classList.remove("lit");
+    }
+
+    async function showSequence(token) {
+      accepting = false;
+      message.textContent = "Watch carefully... 👀";
+      await sleep(500);
+
+      for (const id of sequence) {
+        if (token !== roundToken || !playing) return;
+
+        await flash(id, Math.max(220, 450 - level * 12));
+        await sleep(160);
+      }
+
+      if (token !== roundToken || !playing) return;
+
+      position = 0;
+      accepting = true;
+      message.textContent = "Your turn! Repeat the sequence.";
+    }
+
+    async function nextRound() {
+      level++;
+      sequence.push(Math.floor(Math.random() * 4));
+      saveResume();
+      updateStats();
+      await showSequence(roundToken);
+    }
+
+    async function gameOver() {
+      playing = false;
+      accepting = false;
+      roundToken++;
+      localStorage.removeItem(RESUME_KEY);
+
+      const accuracy = totalInputs
+        ? Math.round((correctInputs / totalInputs) * 100)
+        : 0;
+
+      const elapsedSeconds = Math.max(
+        (performance.now() - startedAt) / 1000,
+        0.1
+      );
+
+      message.textContent = `Game over! Final score: ${score}. Try again!`;
+      startBtn.disabled = false;
+      startBtn.textContent = "▶ Play Again";
+      updateStats();
+
+      const saved = await saveGameResultToBackend({
+        game_name: "sequence_recall",
+        mode: "easy",
+        level: Math.max(1, level),
+        max_level: 1000,
+        score: accuracy,
+        accuracy: accuracy,
+        completion_time_seconds: elapsedSeconds,
+        errors: Math.max(0, totalInputs - correctInputs)
+      });
+      if (saved?.level_recommendation) {
+        const next = saved.level_recommendation;
+        message.textContent += ` Recommended next: level ${next.recommended_level}. ${next.reason}`;
+      }
+      await showGamePerformancePopup({
+        title: "Sequence Recall complete",
+        message: saved?.level_recommendation?.reason || "Here is your performance for this game.",
+        stats: {
+          Score: score,
+          "Highest level reached": Math.max(0, level - 1),
+          Accuracy: `${accuracy}%`,
+          "Correct inputs": correctInputs,
+          "Incorrect inputs": Math.max(0, totalInputs - correctInputs),
+          ...(saved?.level_recommendation ? {
+            "AI's next suggestion": `Level ${saved.level_recommendation.recommended_level}`
+          } : {})
+        },
+        buttonLabel: "Play again"
+      });
+      await startGame();
+    }
+
+    async function startGame() {
+      localStorage.removeItem(RESUME_KEY);
+      resumeBtn.hidden = true;
+      const recommendation = await getRecommendedGameLevel("sequence_recall");
+      roundToken++;
+      sequence = [];
+      position = 0;
+      level = recommendation ? recommendation.recommended_level - 1 : 0;
+      score = 0;
+      totalInputs = 0;
+      correctInputs = 0;
+      startedAt = performance.now();
+      playing = true;
+      accepting = false;
+
+      startBtn.disabled = true;
+      startBtn.textContent = "Game Running...";
+      updateStats();
+
+      await nextRound();
+    }
+
+    async function resumeGame() {
+      let saved;
+      try { saved = JSON.parse(localStorage.getItem(RESUME_KEY) || "null"); } catch { saved = null; }
+      if (!saved || !Array.isArray(saved.sequence) || !saved.sequence.length) return;
+      resumeBtn.hidden = true;
+      roundToken++;
+      sequence = saved.sequence;
+      level = Math.max(1, Number(saved.level) || sequence.length);
+      score = Math.max(0, Number(saved.score) || 0);
+      best = Math.max(score, Number(saved.best) || 0);
+      position = 0;
+      totalInputs = Math.max(0, Number(saved.totalInputs) || 0);
+      correctInputs = Math.max(0, Number(saved.correctInputs) || 0);
+      startedAt = performance.now();
+      playing = true;
+      accepting = false;
+      startBtn.disabled = true;
+      startBtn.textContent = "Game Running...";
+      updateStats();
+      await showSequence(roundToken);
+    }
+
+    pads.forEach(pad => {
+      pad.addEventListener("click", async () => {
+        if (!playing || !accepting) return;
+
+        const id = Number(pad.dataset.id);
+        const token = roundToken;
+
+        accepting = false;
+        await flash(id, 140);
+
+        if (token !== roundToken || !playing) return;
+
+        totalInputs++;
+
+        if (id !== sequence[position]) {
+          gameOver();
+          return;
+        }
+
+        correctInputs++;
+        position++;
+        score++;
+        best = Math.max(best, score);
+        saveResume();
+        updateStats();
+
+        if (position === sequence.length) {
+          message.textContent = `Level ${level} complete!`;
+          await showGamePerformancePopup({
+            title: `Level ${level} complete`,
+            message: "You repeated the full colour sequence correctly.",
+            stats: {
+              Result: "Correct",
+              "Sequence length": sequence.length,
+              Score: score,
+              "Best score": best
+            },
+            buttonLabel: "Next level"
+          });
+
+          if (token === roundToken && playing) {
+            await nextRound();
+          }
+        } else {
+          accepting = true;
+          message.textContent =
+            `Correct! ${sequence.length - position} left.`;
+        }
+      });
+    });
+
+    startBtn.addEventListener("click", startGame);
+    const resumeBtn = document.querySelector("#resume");
+    resumeBtn.hidden = !localStorage.getItem(RESUME_KEY);
+    resumeBtn.addEventListener("click", resumeGame);
+
+    document.querySelector("#reset").addEventListener("click", () => {
+      roundToken++;
+      playing = false;
+      accepting = false;
+      sequence = [];
+      position = 0;
+      level = 0;
+      score = 0;
+      totalInputs = 0;
+      correctInputs = 0;
+      localStorage.removeItem(RESUME_KEY);
+
+      updateStats();
+      message.textContent = "Game reset. Ready for a new challenge?";
+      startBtn.disabled = false;
+      startBtn.textContent = "▶ Start Game";
+      pads.forEach(pad => pad.classList.remove("lit"));
+      resumeBtn.hidden = true;
+    });
+  </script>
+</body>
+</html>

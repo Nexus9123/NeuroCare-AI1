@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Cognitive Care - Dashboard</title>
+
+    <link rel="stylesheet" href="CSS/style.css">
+</head>
+
+<body>
+
+    <div class="dashboard-container">
+
+        <h1>🧠 Cognitive Care</h1>
+
+        <p class="welcome">
+            Welcome, <span id="userName">User</span>!
+        </p>
+
+        <div class="dashboard-card">
+
+            <h2>Your Cognitive Health Journey</h2>
+
+            <p>
+                Complete your assessment and play cognitive
+                training games to track your progress.
+            </p>
+
+            <button onclick="startAssessment()">
+                Start Cognitive Assessment
+            </button>
+
+        </div>
+
+
+        <div class="domain-container">
+
+            <div class="domain-card">
+                <h3>🧠 Memory</h3>
+                <p>Not assessed</p>
+            </div>
+
+            <div class="domain-card">
+                <h3>🎯 Attention</h3>
+                <p>Not assessed</p>
+            </div>
+
+            <div class="domain-card">
+                <h3>⚡ Processing Speed</h3>
+                <p>Not assessed</p>
+            </div>
+
+            <div class="domain-card">
+                <h3>🔷 Pattern Recognition</h3>
+                <p>Not assessed</p>
+            </div>
+
+        </div>
+
+
+        <div class="menu-container">
+
+            <button onclick="openPage('games.html')">
+                Recommended Games
+            </button>
+
+            <button onclick="openPage('progress.html')">
+                View Progress
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <script src="JS/app.js"></script>
+<script>
+  function openPage(page) {
+    window.location.href = page;
+  }
+
+  function startAssessment() {
+    window.location.href = "assessment.html";
+  }
+</script>
+</body>
+</html>
