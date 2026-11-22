@@ -458,6 +458,8 @@ function selectMode(mode, element) {
 
 async function startGame(resumeSaved = false) {
   try {
+    const assessmentRound = typeof isAssessmentGameRound === "function" && isAssessmentGameRound();
+    const assessmentParams = new URLSearchParams(window.location.search);
     let localSaved = null;
     try { localSaved = JSON.parse(localStorage.getItem(MEMORY_RESUME_KEY) || "null"); } catch { localSaved = null; }
     const progress = resumeSaved ? await loadMemoryProgress() : null;
@@ -476,6 +478,13 @@ async function startGame(resumeSaved = false) {
       currentLevel = Number(progress.current_level) || 1;
       completedLevels = Array.isArray(progress.completed_levels)
         ? progress.completed_levels : [];
+    } else if (assessmentRound) {
+      selectedMode = "easy";
+      currentLevel = Math.max(1, Number(assessmentParams.get("level")) || (1 + Math.floor(Math.random() * 10)));
+      document.querySelectorAll(".mode-card").forEach((card, index) => {
+        card.classList.toggle("selected-mode", ["easy", "medium", "hard"][index] === selectedMode);
+      });
+      completedLevels = [];
     } else {
       localStorage.removeItem(MEMORY_RESUME_KEY);
       const recommendation = typeof getRecommendedGameLevel === "function"
@@ -675,6 +684,7 @@ async function showMemoryLevelResult(targetPairs, accuracy) {
   await saveMemoryProgress(
     currentLevel >= maxLevels && !recommendation ? "completed" : "in_progress"
   );
+  if (typeof finishAssessmentGame === "function" && finishAssessmentGame("memory_card", accuracy)) return;
   if (typeof showGamePerformancePopup === "function") {
     showGamePerformancePopup({
     title: `Level ${currentLevel} complete`,

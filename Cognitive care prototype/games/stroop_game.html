@@ -601,6 +601,7 @@
 
       state.lastResult = result;
       const recommendation = saved?.level_recommendation;
+      if (typeof finishAssessmentGame === "function" && finishAssessmentGame("stroop_test", accuracy)) return;
       await showGamePerformancePopup({
         title: `${state.mode[0].toUpperCase() + state.mode.slice(1)} mode · Level ${state.level} complete`,
         message: recommendation?.reason || "Here is your performance for this level.",
@@ -646,12 +647,19 @@
     $("startBtn").addEventListener("click", async () => {
       localStorage.removeItem(RESUME_KEY);
       $("resumeBtn").hidden = true;
-      const recommendation = await getRecommendedGameLevel("stroop_test");
-      if (recommendation) {
-        chooseMode(recommendation.recommended_mode);
-        state.level = Math.min(recommendation.recommended_level, settings().count);
+      const assessmentRound = typeof isAssessmentGameRound === "function" && isAssessmentGameRound();
+      const params = new URLSearchParams(window.location.search);
+      if (assessmentRound) {
+        chooseMode("easy");
+        state.level = Math.min(settings().count, Math.max(1, Number(params.get("level")) || (1 + Math.floor(Math.random() * settings().count))));
       } else {
-        state.level = 1;
+        const recommendation = await getRecommendedGameLevel("stroop_test");
+        if (recommendation) {
+          chooseMode(recommendation.recommended_mode);
+          state.level = Math.min(recommendation.recommended_level, settings().count);
+        } else {
+          state.level = 1;
+        }
       }
       startLevel();
     });

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Level 1 Cognitive Assessment</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#d0e8f2;color:#24334d;font-family:"Segoe UI",Arial,sans-serif}.panel{width:min(100%,720px);padding:28px;border-radius:18px;background:#fff;box-shadow:0 8px 28px #263b581c}h1{margin-top:0;color:#1e3d59}#progress{color:#586b87}.task{margin:22px 0;padding:22px;border-radius:12px;background:#f3f6fb;min-height:160px}.options{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.options button,.action{padding:11px 18px;border:0;border-radius:8px;background:#2b580c;color:#fff;font:inherit;font-weight:700;cursor:pointer}.options button:hover,.action:hover{background:#1e3d59}input{padding:11px;border:1px solid #bbc8d9;border-radius:7px;font:inherit}.note{font-size:14px;color:#64748b;line-height:1.5}#message{min-height:24px}
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <h1>🧠 Level 1 Cognitive Assessment</h1>
+    <p class="note">Play one randomly selected Easy level from each of the five games. Your results are for practice and are not a medical test or diagnosis.</p>
+    <p id="progress">Ready to begin</p>
+    <section id="task" class="task" aria-live="polite"></section>
+    <p id="message" role="status" aria-live="polite"></p>
+    <p class="note">Your results help suggest which game to try and a comfortable starting level.</p>
+  </main>
+  <script>
+    const API_BASE_URL = "http://127.0.0.1:8000";
+    const taskEl=document.getElementById("task"), progressEl=document.getElementById("progress"), messageEl=document.getElementById("message");
+    function showAssessmentStart(){
+      progressEl.textContent="Ready to begin";
+      taskEl.replaceChildren();
+      const text=document.createElement("p");
+      text.textContent="You’ll play one random Easy level from each game: Memory, Stroop, Number Sequence, Reaction Time, and Sequence Recall.";
+      taskEl.appendChild(text);
+      messageEl.textContent="Each game result will be saved to your account as you go.";
+      const button=document.createElement("button");
+      button.className="action";button.type="button";button.textContent="Start assessment";
+      button.onclick=startGameAssessment;taskEl.appendChild(button);
+    }
+    function showGameAssessmentResume(run){
+      progressEl.textContent=`Game ${run.index+1} of ${run.games.length}`;
+      taskEl.replaceChildren();
+      const text=document.createElement("p");
+      const currentGame=run.games[run.index];
+      const name=currentGame.file.replace(".html","").replaceAll("_"," ");
+      text.textContent=`Your assessment is in progress. Continue with ${name}, Easy mode, level ${currentGame.level}.`;
+      taskEl.appendChild(text);
+      messageEl.textContent="Your completed results are kept while you continue.";
+      const button=document.createElement("button");
+      button.className="action";button.type="button";button.textContent="Continue assessment";
+      button.onclick=()=>launchAssessmentGame(run.games[run.index]);taskEl.appendChild(button);
+    }
+    const ASSESSMENT_GAMES = [
+      {key:"memory_card", file:"memory.html", easyLevels:10},
+      {key:"stroop_test", file:"stroop_game.html", easyLevels:10},
+      {key:"number_sequence", file:"number_sequence.html", easyLevels:10},
+      {key:"reaction_time", file:"reaction_time.html", easyLevels:5},
+      {key:"sequence_recall", file:"sequence.html", easyLevels:10}
+    ];
+    async function loadPreviousGameResults(){
+      const token=localStorage.getItem("access_token");
+      if(!token)return [];
+      try{
+        const response=await fetch(`${API_BASE_URL}/results/me`,{headers:{Authorization:`Bearer ${token}`}});
+        if(!response.ok)return [];
+        const data=await response.json();
+        return Array.isArray(data.results)?data.results:[];
+      }catch(error){
+        console.warn("Could not load prior game results for the assessment report:",error);
+        return [];
+      }
+    }
+    function loadAssessmentPreferences(){
+      try{return JSON.parse(localStorage.getItem("aptitude_levels")||"{}");}catch{return {};}
+    }
+    async function startGameAssessment(){
+      progressEl.textContent="Preparing your assessment…";
+      messageEl.textContent="Loading your recent results and preparing the game levels.";
+      const games=ASSESSMENT_GAMES.map(game=>({
+        ...game,
+        level:1+Math.floor(Math.random()*game.easyLevels)
+      }));
+      for(let i=games.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[games[i],games[j]]=[games[j],games[i]];}
+      const previousResults=await loadPreviousGameResults();
+      const preferences=loadAssessmentPreferences();
+      sessionStorage.removeItem("neurocare_assessment_report");
+      sessionStorage.setItem("neurocare_assessment_game_run",JSON.stringify({games,index:0,gameScores:{},previousResults,preferences}));
+      launchAssessmentGame(games[0]);
+    }
+    function launchAssessmentGame(game){
+      window.location.href=`games/${game.file}?assessment=1&mode=easy&level=${game.level}`;
+    }
+    function showAssessmentReport(report){
+      progressEl.textContent="Assessment report";
+      taskEl.replaceChildren();
+      const heading=document.createElement("h2");
+      heading.textContent="Your Cognitive Assessment Report";
+      taskEl.appendChild(heading);
+      const intro=document.createElement("p");
+      intro.textContent="This practice report summarizes your results from one Easy level in each project game. It is not a medical diagnosis.";
+      taskEl.appendChild(intro);
+
+      const gameLabels={
+        memory_card:"Memory Card Match",
+        stroop_test:"Stroop Colour Challenge",
+        number_sequence:"Number Sequence Memory",
+        reaction_time:"Reaction Time",
+        sequence_recall:"Sequence Recall"
+      };
+      const scores=report.gameScores||{};
+      const gameLevels=report.gameLevels||{};
+      const values=Object.values(scores).map(Number).filter(Number.isFinite);
+      const average=values.length?Math.round(values.reduce((sum,value)=>sum+value,0)/values.length):null;
+      const previousResults=Array.isArray(report.previousResults)?report.previousResults:[];
+      const preferences=report.preferences||{};
+      const areas=[
+        {key:"memory",title:"Memory",gameKey:"memory_card",gameTitle:"Memory Card Match",file:"memory.html"},
+        {key:"working_memory",title:"Working Memory",gameKey:"number_sequence",gameTitle:"Number Sequence Memory",file:"number_sequence.html"},
+        {key:"pattern_recognition",title:"Pattern Recognition",gameKey:"sequence_recall",gameTitle:"Sequence Recall",file:"sequence.html"},
+        {key:"attention",title:"Attention",gameKey:"stroop_test",gameTitle:"Stroop Colour Challenge",file:"stroop_game.html"},
+        {key:"processing_speed",title:"Processing Speed",gameKey:"reaction_time",gameTitle:"Reaction Time",file:"reaction_time.html"}
+      ];
+      const areaResults=areas.map(area=>{
+        const gameScore=Number(scores[area.gameKey]);
+        return {...area,score:Number.isFinite(gameScore)?Math.round(gameScore):null};
+      }).filter(area=>area.score!==null);
+      const weakest=areaResults.reduce((low,area)=>!low||area.score<low.score?area:low,null);
+      const summary=document.createElement("p");
+      summary.innerHTML=`<strong>Average game accuracy:</strong> ${average===null?"Not available":`${average}%`} &nbsp; · &nbsp; <strong>Games recorded:</strong> ${values.length} / 5`;
+      taskEl.appendChild(summary);
+
+      const gameTitle=document.createElement("h3");
+      gameTitle.textContent="Game level results";
+      taskEl.appendChild(gameTitle);
+      const gameList=document.createElement("ul");
+      gameList.style.cssText="padding-left:22px;line-height:1.9";
+      Object.entries(gameLabels).forEach(([key,label])=>{
+        const item=document.createElement("li");
+        const score=Number(scores[key]);
+        const level=Number(gameLevels[key]);
+        item.textContent=`${label}: ${Number.isFinite(score)?`${Math.round(score)}%`:"No score recorded"}${Number.isInteger(level)?` · Easy level ${level}`:""}`;
+        gameList.appendChild(item);
+      });
+      taskEl.appendChild(gameList);
+
+      if(weakest){
+        const recommendation=document.createElement("div");
+        recommendation.style.cssText="margin:18px 0;padding:16px;border:1px solid #f1d38a;border-radius:12px;background:#fff8e7";
+        const recommendationTitle=document.createElement("h3");
+        recommendationTitle.textContent="Recommended game for your lowest-scoring area";
+        recommendation.appendChild(recommendationTitle);
+        const recommendationText=document.createElement("p");
+        const prior=previousResults
+          .filter(result=>result.game_name===weakest.gameKey&&(!result.mode||result.mode==="easy")&&Number.isFinite(Number(result.accuracy)))
+          .sort((a,b)=>Number(b.id||0)-Number(a.id||0))
+          .slice(0,3);
+        let reason=`${weakest.title} was your lowest-scoring area in this assessment (${weakest.score}%). Practicing ${weakest.gameTitle} targets that area.`;
+        if(prior.length){
+          const priorAverage=Math.round(prior.reduce((sum,result)=>sum+Number(result.accuracy),0)/prior.length);
+          const change=weakest.score-priorAverage;
+          const trend=change>=5?`up ${change} points`:change<=-5?`down ${Math.abs(change)} points`:"about the same";
+          reason+=` Your last ${prior.length} Easy play(s) of this game averaged ${priorAverage}%; this assessment is ${trend} compared with that average.`;
+        }else{
+          reason+=" There are no earlier Easy-mode results for this game yet, so this assessment provides your first comparison point.";
+        }
+        const preferredMode=preferences[weakest.key];
+        if(["easy","medium","hard"].includes(preferredMode)){
+          reason+=` Your saved starting preference for ${weakest.title} is ${preferredMode}.`;
+        }
+        recommendationText.textContent=reason;
+        recommendation.appendChild(recommendationText);
+        const playButton=document.createElement("button");
+        playButton.className="action";
+        playButton.type="button";
+        playButton.textContent=`Play ${weakest.gameTitle}`;
+        playButton.onclick=()=>{
+          sessionStorage.removeItem("neurocare_assessment_report");
+          window.location.href=`games/${weakest.file}`;
+        };
+        recommendation.appendChild(playButton);
+        taskEl.appendChild(recommendation);
+      }
+
+      const dashboardButton=document.createElement("button");
+      dashboardButton.className="action";
+      dashboardButton.type="button";
+      dashboardButton.textContent="Go to Dashboard";
+      dashboardButton.onclick=()=>{
+        sessionStorage.removeItem("neurocare_assessment_report");
+        sessionStorage.removeItem("neurocare_initial_assessment_ready");
+        window.location.href="dashboard.html";
+      };
+      taskEl.appendChild(dashboardButton);
+      messageEl.textContent="This report will stay here until you choose Go to Dashboard.";
+    }
+
+    function completeGameAssessmentRound(){
+      let run;
+      try{run=JSON.parse(sessionStorage.getItem("neurocare_assessment_game_run")||"null");}catch{}
+      if(!run||!Array.isArray(run.games)||!Number.isInteger(run.index)){
+        progressEl.textContent="Assessment session not found";
+        taskEl.textContent="Please start the assessment again from the login page.";
+        return;
+      }
+      run.index++;
+      if(run.index<run.games.length){
+        sessionStorage.setItem("neurocare_assessment_game_run",JSON.stringify(run));
+        progressEl.textContent=`Game ${run.index+1} of ${run.games.length}`;
+        taskEl.textContent=`Your result is saved. Next game: ${run.games[run.index].file.replace(".html","").replaceAll("_"," ")}.`;
+        messageEl.textContent="Starting the next game…";
+        setTimeout(()=>launchAssessmentGame(run.games[run.index]),900);
+        return;
+      }
+      sessionStorage.removeItem("neurocare_assessment_game_run");
+      const gameLevels=Object.fromEntries(run.games.map(game=>[game.key,game.level]));
+      const report={
+        gameScores:run.gameScores||{},
+        gameLevels,
+        previousResults:run.previousResults||[],
+        preferences:run.preferences||{},
+        completedAt:new Date().toISOString()
+      };
+      sessionStorage.setItem("neurocare_assessment_report",JSON.stringify(report));
+      const accountEmail=(localStorage.getItem("username")||"").trim().toLowerCase();
+      if(accountEmail){localStorage.setItem(`game_assessment_complete:${accountEmail}`,"true");}
+      localStorage.setItem("initial_assessment_complete","true");
+      showAssessmentReport(report);
+    }
+    const params=new URLSearchParams(window.location.search);
+    let savedReport=null;
+    try{savedReport=JSON.parse(sessionStorage.getItem("neurocare_assessment_report")||"null");}catch{}
+    let savedGameRun=null;
+    try{savedGameRun=JSON.parse(sessionStorage.getItem("neurocare_assessment_game_run")||"null");}catch{}
+    if(savedReport){
+      showAssessmentReport(savedReport);
+    } else if(params.has("assessmentRoundDone")){
+      completeGameAssessmentRound();
+    } else if(savedGameRun&&Array.isArray(savedGameRun.games)&&Number.isInteger(savedGameRun.index)&&savedGameRun.index<savedGameRun.games.length){
+      showGameAssessmentResume(savedGameRun);
+    } else {
+      sessionStorage.removeItem("neurocare_assessment_game_run");
+      showAssessmentStart();
+    }
+  </script>
+</body>
+</html>

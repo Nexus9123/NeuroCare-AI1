@@ -69,6 +69,12 @@ class User(Base):
     age: Mapped[int | None] = mapped_column(
         Integer, nullable=True
     )
+    aptitude_levels: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )
+    assessment_scores: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )
 
 
 class GameProgress(Base):

@@ -24,6 +24,8 @@ from schemas import (
     GameName,
     GameProgressSave,
     AgeUpdate,
+    AptitudeLevels,
+    InitialAssessment,
     ResultsResponse,
     SaveResultResponse,
     TokenResponse,
@@ -91,8 +93,14 @@ with engine.begin() as connection:
         connection.execute(
             text("ALTER TABLE users ADD COLUMN age INTEGER")
         )
-
-
+    if "aptitude_levels" not in user_columns:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN aptitude_levels JSON")
+        )
+    if "assessment_scores" not in user_columns:
+        connection.execute(
+            text("ALTER TABLE users ADD COLUMN assessment_scores JSON")
+        )
 password_hash = PasswordHash.recommended()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -224,6 +232,7 @@ def register_user(
         "email": db_user.email,
         "is_active": db_user.is_active,
         "age": db_user.age,
+        "aptitude_levels": db_user.aptitude_levels,
     }
 
 
@@ -262,6 +271,8 @@ def login(
         "access_token": create_access_token(user.id),
         "token_type": "bearer",
         "age": user.age,
+        "aptitude_levels": user.aptitude_levels,
+        "assessment_scores": user.assessment_scores,
     }
 
 
@@ -289,6 +300,106 @@ def update_my_age(
         )
 
     return {"age": current_user.age}
+
+
+@app.put("/users/me/aptitudes")
+def save_aptitude_levels(
+    levels: AptitudeLevels,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    current_user.aptitude_levels = levels.model_dump()
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Could not save your game starting levels.",
+        )
+    return {"aptitude_levels": current_user.aptitude_levels}
+
+
+@app.post("/assessment/initial")
+def save_initial_assessment(
+    scores: InitialAssessment,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    current_user.assessment_scores = scores.model_dump()
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not save the assessment results.")
+    return {"assessment_scores": current_user.assessment_scores}
+
+
+@app.get("/recommendation/games")
+def get_game_recommendations(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    areas = [
+        ("memory", "Memory", "memory_card", "games/memory.html"),
+        ("working_memory", "Working Memory", "number_sequence", "games/number_sequence.html"),
+        ("pattern_recognition", "Pattern Recognition", "sequence_memory", "games/sequence.html"),
+        ("attention", "Attention", "stroop_test", "games/stroop_game.html"),
+        ("processing_speed", "Processing Speed", "reaction_time", "games/reaction_time.html"),
+    ]
+    user_results = (
+        db.query(GameResultModel)
+        .filter(GameResultModel.user_id == current_user.id)
+        .order_by(GameResultModel.id.desc())
+        .all()
+    )
+    levels = current_user.aptitude_levels or {}
+    recommendations = []
+    for area_key, label, game_name, url in areas:
+        preferred_mode = levels.get(area_key)
+        if preferred_mode not in {"easy", "medium", "hard"}:
+            preferred_mode = "easy" if current_user.age is None or current_user.age > 60 else "medium" if current_user.age >= 45 else "hard"
+        history = [item for item in user_results if item.game_name == game_name]
+        if history:
+            latest = history[0]
+            reason = f"Your chosen starting level is {preferred_mode.title()}. You have played this area {len(history)} time(s); your latest accuracy was {latest.accuracy:.0f}%."
+            priority = latest.accuracy
+        else:
+            reason = f"You selected {preferred_mode.title()} as your starting level for {label}. This game has no saved results yet."
+            priority = -1
+        recommendations.append({
+            "aptitude": label,
+            "game_name": game_name,
+            "title": label if game_name != "memory_card" else "Memory Card Match",
+            "url": url,
+            "recommended_mode": preferred_mode,
+            "reason": reason,
+            "games_played": len(history),
+            "average_accuracy": round(sum(item.accuracy for item in history[:3]) / min(3, len(history))) if history else None,
+            "priority": priority,
+        })
+    recommendations.sort(key=lambda item: item["priority"])
+    for item in recommendations:
+        item.pop("priority")
+    return {"recommendations": recommendations}
+
+
+@app.put("/users/me/aptitudes")
+def save_aptitude_levels(
+    levels: AptitudeLevels,
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    current_user.aptitude_levels = levels.model_dump()
+    try:
+        db.commit()
+        db.refresh(current_user)
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Could not save your game starting levels.")
+    return {"aptitude_levels": current_user.aptitude_levels}
 
 
 # ==========================================
@@ -394,11 +505,113 @@ def get_level_recommendation(
         .all()
     )
 
-    return recommend_level(
+    recommendation = recommend_level(
         game_name,
         user_age=current_user.age,
         previous_results=recent_results,
     )
+    if not recent_results and current_user.aptitude_levels:
+        area_for_game = {
+            "memory_card": "memory",
+            "number_sequence": "working_memory",
+            "sequence_memory": "pattern_recognition",
+            "sequence_recall": "pattern_recognition",
+            "stroop_test": "attention",
+            "reaction_time": "processing_speed",
+        }.get(game_name)
+        preferred = current_user.aptitude_levels.get(area_for_game) if area_for_game else None
+        if preferred in {"easy", "medium", "hard"}:
+            recommendation["recommended_mode"] = preferred
+            recommendation["reason"] = f"Based on your selected starting level for this area, begin at {preferred.title()} level 1."
+    return recommendation
+
+
+@app.get("/recommendation/games")
+def get_game_recommendations(
+    db: Session = Depends(get_db),
+    current_user: UserModel = Depends(get_current_user),
+):
+    areas = [
+        ("memory", "Memory Card Match", "memory_card", "games/memory.html"),
+        ("working_memory", "Number Sequence Memory", "number_sequence", "games/number_sequence.html"),
+        ("pattern_recognition", "Sequence Recall", "sequence_recall", "games/sequence.html"),
+        ("attention", "Stroop Colour Challenge", "stroop_test", "games/stroop_game.html"),
+        ("processing_speed", "Reaction Time", "reaction_time", "games/reaction_time.html"),
+    ]
+    results = (
+        db.query(GameResultModel)
+        .filter(GameResultModel.user_id == current_user.id)
+        .order_by(GameResultModel.id.desc())
+        .all()
+    )
+    preferences = current_user.aptitude_levels or {}
+    baseline = current_user.assessment_scores or {}
+    recommendations = []
+    for area, title, game_name, url in areas:
+        matching = [item for item in results if item.game_name == game_name]
+        mode = preferences.get(area)
+        if mode not in {"easy", "medium", "hard"}:
+            mode = "easy" if current_user.age is None or current_user.age > 60 else "medium" if current_user.age >= 45 else "hard"
+        if matching:
+            latest = matching[0]
+            recent = matching[:3]
+            average_accuracy = round(sum(item.accuracy for item in recent) / len(recent))
+            level_advice = recommend_level(
+                game_name,
+                user_age=current_user.age,
+                previous_results=recent,
+            )
+            recommended_mode = level_advice["recommended_mode"]
+            recommended_level = level_advice["recommended_level"]
+            if len(recent) > 1:
+                prior_average = sum(item.accuracy for item in recent[1:]) / (len(recent) - 1)
+                change = latest.accuracy - prior_average
+                trend = "improving" if change >= 5 else "declining" if change <= -5 else "steady"
+                trend_detail = f"Your accuracy is {trend} (latest {latest.accuracy:.0f}% vs {prior_average:.0f}% on earlier recent play(s))."
+            else:
+                trend_detail = f"Your latest accuracy was {latest.accuracy:.0f}%; more plays will clarify your trend."
+            reason = (
+                f"You selected {mode.title()} as your starting level for {area.replace('_', ' ')}. "
+                f"Across your last {len(recent)} play(s), average accuracy is {average_accuracy}%. "
+                f"{trend_detail} Based on these results, try {recommended_mode.title()} mode, level {recommended_level}."
+            )
+        else:
+            average_accuracy = None
+            recommended_mode = mode
+            recommended_level = 1
+            reason = f"You chose {mode.title()} as your starting level for this area, and haven’t played it yet."
+        assessment_score = baseline.get(area)
+        if assessment_score is not None:
+            assessment_score = int(assessment_score)
+            reason += f" Your Level 1 assessment score in this area was {assessment_score}/100."
+            if matching:
+                reason += f" Together with your recent game accuracy of {average_accuracy}%, this informs the suggestion."
+            else:
+                reason += " This baseline makes the game a useful place to begin building practice history."
+        recommendations.append({
+            "aptitude": area.replace("_", " ").title(),
+            "game_name": game_name,
+            "title": title,
+            "url": url,
+            "preferred_mode": mode,
+            "recommended_mode": recommended_mode,
+            "recommended_level": recommended_level,
+            "reason": reason,
+            "games_played": len(matching),
+            "average_accuracy": average_accuracy,
+            "assessment_score": assessment_score,
+            "priority": (
+                ((100 - assessment_score) * 0.6 + (100 - average_accuracy) * 0.4)
+                if assessment_score is not None and average_accuracy is not None
+                else (100 - assessment_score) if assessment_score is not None
+                else (100 - average_accuracy) if average_accuracy is not None
+                else -1
+            ),
+        })
+    recommendations.sort(key=lambda item: item["priority"])
+    for item in recommendations:
+        item.pop("priority")
+    return {"recommendations": recommendations}
 
 
 # ==========================================

@@ -232,7 +232,16 @@
 
     async function nextRound() {
       level++;
-      sequence.push(Math.floor(Math.random() * 4));
+      if (typeof isAssessmentGameRound === "function" && isAssessmentGameRound()) {
+        const requestedLength = Number(new URLSearchParams(window.location.search).get("level"));
+        const length = Math.min(10, Math.max(1,
+          Number.isInteger(requestedLength) && requestedLength > 0
+            ? requestedLength : 1 + Math.floor(Math.random() * 10)));
+        sequence = Array.from({ length }, () => Math.floor(Math.random() * 4));
+        level = length;
+      } else {
+        sequence.push(Math.floor(Math.random() * 4));
+      }
       saveResume();
       updateStats();
       await showSequence(roundToken);
@@ -247,6 +256,22 @@
       const accuracy = totalInputs
         ? Math.round((correctInputs / totalInputs) * 100)
         : 0;
+
+      if (typeof finishAssessmentGame === "function" && isAssessmentGameRound()) {
+        const elapsed = Math.max((performance.now() - startedAt) / 1000, 0.1);
+        await saveGameResultToBackend({
+          game_name: "sequence_recall",
+          mode: "easy",
+          level: Math.max(1, level),
+          max_level: 1000,
+          score: accuracy,
+          accuracy,
+          completion_time_seconds: elapsed,
+          errors: Math.max(1, totalInputs - correctInputs)
+        });
+        finishAssessmentGame("sequence_recall", accuracy);
+        return;
+      }
 
       const elapsedSeconds = Math.max(
         (performance.now() - startedAt) / 1000,
@@ -293,11 +318,19 @@
     async function startGame() {
       localStorage.removeItem(RESUME_KEY);
       resumeBtn.hidden = true;
-      const recommendation = await getRecommendedGameLevel("sequence_recall");
+      const assessmentRound = typeof isAssessmentGameRound === "function" && isAssessmentGameRound();
+      const recommendation = assessmentRound ? null : await getRecommendedGameLevel("sequence_recall");
       roundToken++;
       sequence = [];
       position = 0;
-      level = recommendation ? recommendation.recommended_level - 1 : 0;
+      if (assessmentRound) {
+        const requestedLength = Number(new URLSearchParams(window.location.search).get("level"));
+        level = Math.min(10, Math.max(0,
+          (Number.isInteger(requestedLength) && requestedLength > 0
+            ? requestedLength : 1 + Math.floor(Math.random() * 10)) - 1));
+      } else {
+        level = recommendation ? recommendation.recommended_level - 1 : 0;
+      }
       score = 0;
       totalInputs = 0;
       correctInputs = 0;
@@ -362,6 +395,25 @@
 
         if (position === sequence.length) {
           message.textContent = `Level ${level} complete!`;
+          if (typeof finishAssessmentGame === "function" && isAssessmentGameRound()) {
+            playing = false;
+            accepting = false;
+            roundToken++;
+            localStorage.removeItem(RESUME_KEY);
+            const accuracy = totalInputs ? Math.round((correctInputs / totalInputs) * 100) : 0;
+            await saveGameResultToBackend({
+              game_name: "sequence_recall",
+              mode: "easy",
+              level: Math.max(1, level),
+              max_level: 1000,
+              score: accuracy,
+              accuracy,
+              completion_time_seconds: Math.max((performance.now() - startedAt) / 1000, 0.1),
+              errors: Math.max(0, totalInputs - correctInputs)
+            });
+            finishAssessmentGame("sequence_recall", accuracy);
+            return;
+          }
           await showGamePerformancePopup({
             title: `Level ${level} complete`,
             message: "You repeated the full colour sequence correctly.",

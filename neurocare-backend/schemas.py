@@ -83,17 +83,36 @@ class AgeUpdate(BaseModel):
     age: int = Field(ge=1, le=120)
 
 
+class AptitudeLevels(BaseModel):
+    memory: Literal["easy", "medium", "hard"]
+    working_memory: Literal["easy", "medium", "hard"]
+    pattern_recognition: Literal["easy", "medium", "hard"]
+    attention: Literal["easy", "medium", "hard"]
+    processing_speed: Literal["easy", "medium", "hard"]
+
+
+class InitialAssessment(BaseModel):
+    memory: int = Field(ge=0, le=100)
+    working_memory: int = Field(ge=0, le=100)
+    pattern_recognition: int = Field(ge=0, le=100)
+    attention: int = Field(ge=0, le=100)
+    processing_speed: int = Field(ge=0, le=100)
+
+
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
     is_active: bool
     age: int | None = None
+    aptitude_levels: AptitudeLevels | None = None
 
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     age: int | None = None
+    aptitude_levels: AptitudeLevels | None = None
+    assessment_scores: InitialAssessment | None = None
 
 
 # NEW: Save and resume game progress

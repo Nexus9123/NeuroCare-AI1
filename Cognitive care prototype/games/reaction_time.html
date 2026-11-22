@@ -270,14 +270,25 @@
       clearTimers();
       localStorage.removeItem(RESUME_KEY);
 
-      const recommendation = await getRecommendedGameLevel("reaction_time");
-      if (recommendation) {
-        chooseMode(recommendation.recommended_mode);
-        level = Math.min(recommendation.recommended_level, LEVELS_PER_MODE);
+      const assessmentRound = typeof isAssessmentGameRound === "function" && isAssessmentGameRound();
+      if (assessmentRound) {
+        chooseMode("easy");
+        const requestedLevel = Number(new URLSearchParams(window.location.search).get("level"));
+        level = Math.min(LEVELS_PER_MODE, Math.max(1,
+          Number.isInteger(requestedLevel) && requestedLevel > 0
+            ? requestedLevel : 1 + Math.floor(Math.random() * LEVELS_PER_MODE)));
       } else {
-        level = 1;
+        const recommendation = await getRecommendedGameLevel("reaction_time");
+        if (recommendation) {
+          chooseMode(recommendation.recommended_mode);
+          level = Math.min(recommendation.recommended_level, LEVELS_PER_MODE);
+        } else {
+          level = 1;
+        }
       }
-      roundsPerRun = ROUNDS_PER_LEVEL * (LEVELS_PER_MODE - level + 1);
+      roundsPerRun = assessmentRound
+        ? ROUNDS_PER_LEVEL
+        : ROUNDS_PER_LEVEL * (LEVELS_PER_MODE - level + 1);
       score = 0;
       errors = 0;
       round = 0;
@@ -507,6 +518,8 @@
         $("saveStatus").textContent =
           "Could not save. Log in and make sure the backend is running.";
       }
+
+      if (typeof finishAssessmentGame === "function" && finishAssessmentGame("reaction_time", accuracy)) return;
 
       const recommendation = savedResult?.level_recommendation;
       await showGamePerformancePopup({

@@ -1,4 +1,53 @@
+// All game pages load this shared file. Require the signed-in user to finish
+// the one-time Level 1 baseline before any game can open.
+if (
+  localStorage.getItem("access_token") &&
+  localStorage.getItem("initial_assessment_complete") !== "true"
+) {
+  window.location.replace("../initial-assessment.html");
+}
+
 const API_BASE_URL = "http://127.0.0.1:8000";
+
+// Assessment games call this after recording their one-level result. The
+// assessment page then launches the next game in its randomized sequence.
+function isAssessmentGameRound() {
+  return new URLSearchParams(window.location.search).get("assessment") === "1";
+}
+
+if (isAssessmentGameRound()) {
+  window.addEventListener("DOMContentLoaded", () => {
+    const notice = document.createElement("div");
+    notice.textContent = "Assessment: finish one level. Your result will be saved, then the next project game will open.";
+    notice.setAttribute("role", "status");
+    notice.style.cssText = "position:fixed;z-index:9999;top:10px;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);padding:9px 14px;border-radius:10px;background:#173b5b;color:#fff;font:600 13px/1.4 Segoe UI,Arial,sans-serif;box-shadow:0 4px 16px #0002;text-align:center";
+    document.body.appendChild(notice);
+  }, { once: true });
+}
+
+function finishAssessmentGame(gameName, score) {
+  if (!isAssessmentGameRound()) return false;
+  const knownGames = new Set([
+    "memory_card", "stroop_test", "number_sequence",
+    "reaction_time", "sequence_recall"
+  ]);
+  if (!knownGames.has(gameName)) {
+    console.error("Unknown assessment game:", gameName);
+    return false;
+  }
+  try {
+    const run = JSON.parse(sessionStorage.getItem("neurocare_assessment_game_run") || "null");
+    if (run && Number.isFinite(Number(score))) {
+      run.gameScores = run.gameScores || {};
+      run.gameScores[gameName] = Math.max(0, Math.min(100, Number(score)));
+      sessionStorage.setItem("neurocare_assessment_game_run", JSON.stringify(run));
+    }
+  } catch (error) {
+    console.warn("Could not store this assessment game score:", error);
+  }
+  window.location.replace(`../initial-assessment.html?assessmentRoundDone=1&game=${encodeURIComponent(gameName)}`);
+  return true;
+}
 
 const BACKEND_GAME_NAMES = new Set([
   "memory_card",

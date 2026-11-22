@@ -477,7 +477,8 @@ const state = {
   locked: false,
   actualDisplayMs: 0,
   inputStart: 0,
-  answerSeconds: 0
+  answerSeconds: 0,
+  assessmentRound: false
 };
 
 function showScreen(id) {
@@ -508,6 +509,10 @@ function levelSettings() {
 
 async function showNumberLevelResult() {
   const lastResult = state.results[state.results.length - 1];
+  if (state.assessmentRound) {
+    await finishGame();
+    return;
+  }
   if (state.level >= TOTAL_LEVELS) {
     await finishGame();
     return;
@@ -565,13 +570,23 @@ async function startGame() {
   localStorage.removeItem(RESUME_KEY);
   $("resumeBtn").hidden = true;
 
-  const recommendation = await getRecommendedGameLevel("number_sequence");
+  const params = new URLSearchParams(window.location.search);
+  state.assessmentRound = params.get("assessment") === "1";
+  const recommendation = state.assessmentRound ? null : await getRecommendedGameLevel("number_sequence");
   if (recommendation) {
     selectMode(recommendation.recommended_mode);
     state.recommendedLevel = recommendation.recommended_level;
   }
 
-  state.level = Math.min(state.recommendedLevel || 1, TOTAL_LEVELS);
+  if (state.assessmentRound) {
+    selectMode("easy");
+    const requestedLevel = Number(params.get("level"));
+    state.level = Number.isInteger(requestedLevel) && requestedLevel >= 1
+      ? Math.min(requestedLevel, TOTAL_LEVELS)
+      : Math.floor(Math.random() * TOTAL_LEVELS) + 1;
+  } else {
+    state.level = Math.min(state.recommendedLevel || 1, TOTAL_LEVELS);
+  }
   state.results = [];
   state.sessionStart = new Date().toISOString();
   state.latestExport = null;
@@ -848,6 +863,10 @@ async function finishGame() {
     $("saveStatus").textContent = saved
       ? `Result saved. Recommended next: ${saved.level_recommendation.recommended_mode} mode, level ${saved.level_recommendation.recommended_level}. ${saved.level_recommendation.reason}`
       : "The backend rejected the result. Check the browser console and backend terminal.";
+    if (state.assessmentRound) {
+      finishAssessmentGame("number_sequence", Math.round(summary.accuracy_percent));
+      return;
+    }
     await showGamePerformancePopup({
       title: "Number Sequence Memory complete",
       message: saved?.level_recommendation?.reason || "Here is your overall session performance.",
@@ -871,6 +890,10 @@ async function finishGame() {
     console.error("Could not save sequence memory result:", error);
     $("saveStatus").textContent =
       "Could not save the result. Check that you are logged in and the backend is running.";
+    if (state.assessmentRound) {
+      finishAssessmentGame("number_sequence", Math.round(summary.accuracy_percent));
+      return;
+    }
     await showGamePerformancePopup({
       title: "Number Sequence Memory complete",
       message: "Your overall session performance is ready.",

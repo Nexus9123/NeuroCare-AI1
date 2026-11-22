@@ -11,6 +11,12 @@
     .auth-note { margin-top: 10px; color: #52617b; line-height: 1.4; }
     .login-container { padding: 22px 0; }
     .login-box[hidden] { display: none !important; }
+    #aptitude-panel { max-width: 720px; text-align: left; }
+    .aptitude-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+    .aptitude-choice { padding: 13px; border-radius: 10px; background: #f3f6fb; }
+    .aptitude-choice label { display: block; margin-bottom: 7px; font-weight: 700; }
+    .aptitude-choice select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 7px; }
+    @media (max-width: 600px) { .aptitude-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -52,6 +58,19 @@
       <label for="login-age">Age</label>
       <input type="number" id="login-age" min="1" max="120" step="1" placeholder="Enter your age" required>
       <button type="button" onclick="saveMissingAge()">Save age and continue</button>
+    </section>
+
+    <section id="aptitude-panel" class="login-box" hidden>
+      <h2>Choose your starting levels</h2>
+      <p class="auth-note">Pick a comfortable starting difficulty for each area. These are preferences, not a test.</p>
+      <div class="aptitude-grid">
+        <div class="aptitude-choice"><label for="apt-memory">Memory</label><select id="apt-memory"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+        <div class="aptitude-choice"><label for="apt-working-memory">Working memory</label><select id="apt-working-memory"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+        <div class="aptitude-choice"><label for="apt-pattern">Pattern recognition</label><select id="apt-pattern"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+        <div class="aptitude-choice"><label for="apt-attention">Attention</label><select id="apt-attention"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+        <div class="aptitude-choice"><label for="apt-speed">Processing speed</label><select id="apt-speed"><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></div>
+      </div>
+      <button type="button" onclick="saveAptitudeLevels()">Save levels and continue</button>
     </section>
 
     <p id="message" role="status" aria-live="polite"></p>

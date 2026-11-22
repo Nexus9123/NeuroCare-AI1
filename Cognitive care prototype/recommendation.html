@@ -26,7 +26,7 @@
 <body>
   <main>
     <h1>🎯 Recommended Games</h1>
-    <p class="muted">Suggestions are based on games you have not tried yet and your recent accuracy. They are for practice, not a medical assessment.</p>
+    <p class="muted">Suggestions consider your Level 1 baseline, selected starting level, and recent game results. They are for practice, not a medical diagnosis.</p>
     <p id="status" role="status" aria-live="polite">Loading your recommendations…</p>
     <section id="recommendations" class="recommendations" aria-label="Personalized game suggestions"></section>
     <div class="actions"><a href="dashboard.html">← Back to Dashboard</a></div>
@@ -68,9 +68,13 @@
           reason.textContent = item.reason;
           const stats = document.createElement("p");
           stats.className = "stats";
-          stats.textContent = item.games_played
-            ? `Played ${item.games_played} time(s) · Recent average accuracy: ${item.average_accuracy}%`
-            : "Not played yet · Try it to build a broader practice history";
+          const chosenLevel = item.preferred_mode ? `You selected: ${item.preferred_mode} · ` : "";
+          const suggestedLevel = item.recommended_mode
+            ? `Suggested next: ${item.recommended_mode} mode, level ${item.recommended_level || 1}. `
+            : "";
+          stats.textContent = `${chosenLevel}${suggestedLevel}${item.games_played
+            ? `Played ${item.games_played} time(s) · Average accuracy in recent results: ${item.average_accuracy}%`
+            : "Not played yet · Try it to build a broader practice history"}`;
           const link = document.createElement("a");
           link.href = item.url;
           link.textContent = "Play this game →";
