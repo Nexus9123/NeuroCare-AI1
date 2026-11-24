@@ -12,6 +12,7 @@ from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 
+from assesment import create_assessment_router
 from database import Base, engine, get_db
 from models import (
     GameResult as GameResultModel,
@@ -25,7 +26,6 @@ from schemas import (
     GameProgressSave,
     AgeUpdate,
     AptitudeLevels,
-    InitialAssessment,
     ResultsResponse,
     SaveResultResponse,
     TokenResponse,
@@ -163,6 +163,9 @@ def get_current_user(
         )
 
     return user
+
+
+app.include_router(create_assessment_router(get_current_user))
 
 
 # ==========================================
@@ -318,87 +321,6 @@ def save_aptitude_levels(
             status_code=500,
             detail="Could not save your game starting levels.",
         )
-    return {"aptitude_levels": current_user.aptitude_levels}
-
-
-@app.post("/assessment/initial")
-def save_initial_assessment(
-    scores: InitialAssessment,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
-):
-    current_user.assessment_scores = scores.model_dump()
-    try:
-        db.commit()
-        db.refresh(current_user)
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Could not save the assessment results.")
-    return {"assessment_scores": current_user.assessment_scores}
-
-
-@app.get("/recommendation/games")
-def get_game_recommendations(
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
-):
-    areas = [
-        ("memory", "Memory", "memory_card", "games/memory.html"),
-        ("working_memory", "Working Memory", "number_sequence", "games/number_sequence.html"),
-        ("pattern_recognition", "Pattern Recognition", "sequence_memory", "games/sequence.html"),
-        ("attention", "Attention", "stroop_test", "games/stroop_game.html"),
-        ("processing_speed", "Processing Speed", "reaction_time", "games/reaction_time.html"),
-    ]
-    user_results = (
-        db.query(GameResultModel)
-        .filter(GameResultModel.user_id == current_user.id)
-        .order_by(GameResultModel.id.desc())
-        .all()
-    )
-    levels = current_user.aptitude_levels or {}
-    recommendations = []
-    for area_key, label, game_name, url in areas:
-        preferred_mode = levels.get(area_key)
-        if preferred_mode not in {"easy", "medium", "hard"}:
-            preferred_mode = "easy" if current_user.age is None or current_user.age > 60 else "medium" if current_user.age >= 45 else "hard"
-        history = [item for item in user_results if item.game_name == game_name]
-        if history:
-            latest = history[0]
-            reason = f"Your chosen starting level is {preferred_mode.title()}. You have played this area {len(history)} time(s); your latest accuracy was {latest.accuracy:.0f}%."
-            priority = latest.accuracy
-        else:
-            reason = f"You selected {preferred_mode.title()} as your starting level for {label}. This game has no saved results yet."
-            priority = -1
-        recommendations.append({
-            "aptitude": label,
-            "game_name": game_name,
-            "title": label if game_name != "memory_card" else "Memory Card Match",
-            "url": url,
-            "recommended_mode": preferred_mode,
-            "reason": reason,
-            "games_played": len(history),
-            "average_accuracy": round(sum(item.accuracy for item in history[:3]) / min(3, len(history))) if history else None,
-            "priority": priority,
-        })
-    recommendations.sort(key=lambda item: item["priority"])
-    for item in recommendations:
-        item.pop("priority")
-    return {"recommendations": recommendations}
-
-
-@app.put("/users/me/aptitudes")
-def save_aptitude_levels(
-    levels: AptitudeLevels,
-    db: Session = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
-):
-    current_user.aptitude_levels = levels.model_dump()
-    try:
-        db.commit()
-        db.refresh(current_user)
-    except SQLAlchemyError:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Could not save your game starting levels.")
     return {"aptitude_levels": current_user.aptitude_levels}
 
 
